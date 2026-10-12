@@ -1,0 +1,1430 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<title>3D Nanotweezer — Small Size Structures Laboratory</title>
+
+<!-- Three.js UMD -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+<!-- Plotly for the mesh convergence figure -->
+<script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+
+<!-- D3 for the interactive matrix -->
+<script src="https://d3js.org/d3.v7.min.js"></script>
+
+<style>
+/* ================= GLOBAL ================= */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Times New Roman', Times, serif;
+  background: #000308;
+  color: #e8f4ff;
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+/* ================= BACKGROUND ================= */
+#space-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+#bubbles-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+#space-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 15% 20%, rgba(80, 180, 255, 0.10), transparent 50%),
+    radial-gradient(circle at 85% 75%, rgba(180, 100, 255, 0.10), transparent 50%),
+    radial-gradient(circle at 50% 50%, rgba(0, 255, 200, 0.05), transparent 60%);
+}
+
+/* ================= CONTENT WRAPPER ================= */
+.content {
+  position: relative;
+  z-index: 5;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 40px 24px 80px;
+}
+
+/* ================= GLASS FRAME ================= */
+.glass-frame {
+  background: rgba(8, 16, 32, 0.55);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(120, 200, 255, 0.22);
+  border-radius: 20px;
+  padding: 32px 40px;
+  margin-bottom: 32px;
+  box-shadow:
+    0 10px 40px rgba(0, 0, 0, 0.55),
+    inset 0 0 60px rgba(80, 180, 255, 0.05),
+    0 0 30px rgba(60, 160, 255, 0.10);
+  animation: fadeUp 0.8s ease both;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ================= HEADER ================= */
+.header-frame {
+  text-align: center;
+  padding: 50px 40px 40px;
+}
+
+.bismillah {
+  font-family: 'Times New Roman', serif;
+  font-size: 38px;
+  color: #ffd86b;
+  text-shadow:
+    0 0 20px rgba(255, 216, 107, 0.85),
+    0 0 45px rgba(255, 216, 107, 0.45);
+  margin-bottom: 12px;
+  direction: rtl;
+  letter-spacing: 1px;
+}
+
+.hoval-khallaq {
+  font-family: 'Times New Roman', serif;
+  font-size: 22px;
+  color: #7fd8ff;
+  letter-spacing: 5px;
+  text-shadow: 0 0 16px rgba(127, 216, 255, 0.65);
+  margin-bottom: 34px;
+  direction: rtl;
+}
+
+.main-title {
+  font-size: 26px;
+  color: #eaf4ff;
+  font-weight: bold;
+  line-height: 1.45;
+  margin-bottom: 12px;
+}
+
+.subtitle {
+  font-size: 15px;
+  color: #9fb8d8;
+  font-style: italic;
+  margin-bottom: 16px;
+}
+
+.authors-line {
+  font-size: 13.5px;
+  color: #b8c8e0;
+  letter-spacing: 0.3px;
+}
+
+/* ================= SECTION ================= */
+.section-title {
+  font-size: 21px;
+  color: #7fd8ff;
+  margin-bottom: 18px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(120, 200, 255, 0.22);
+  letter-spacing: 0.4px;
+  text-shadow: 0 0 12px rgba(80, 200, 255, 0.45);
+}
+
+.section p {
+  font-size: 15px;
+  line-height: 1.85;
+  color: #cfe4ff;
+  margin-bottom: 14px;
+  text-align: left;
+}
+
+.highlight {
+  color: #ffd86b;
+  font-weight: bold;
+}
+
+/* ================= 3D VIEWER ================= */
+#viewer-frame {
+  position: relative;
+  width: 100%;
+  height: 640px;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(120, 200, 255, 0.25);
+  background: #000610;
+  box-shadow:
+    inset 0 0 60px rgba(0, 0, 0, 0.6),
+    0 0 30px rgba(60, 160, 255, 0.15);
+}
+
+#scene-container {
+  position: absolute;
+  inset: 0;
+}
+
+.panel {
+  position: absolute;
+  background: rgba(8, 16, 32, 0.85);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(120, 200, 255, 0.3);
+  border-radius: 12px;
+  padding: 12px 16px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6);
+  color: #eaf4ff;
+  z-index: 10;
+  font-size: 13px;
+}
+
+#panel-voltage {
+  top: 16px;
+  right: 16px;
+  min-width: 200px;
+}
+
+#panel-voltage .row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+#panel-voltage .lbl { color: #9fb8d8; }
+#panel-voltage .val { color: #7fd8ff; font-weight: bold; }
+
+#panel-colorbar {
+  top: 16px;
+  left: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 12px;
+}
+
+#panel-colorbar .unit { font-size: 12px; color: #9fb8d8; margin-bottom: 4px; }
+#panel-colorbar .arrow { font-size: 11px; color: #eaf4ff; margin: 2px 0; }
+#panel-colorbar .bar {
+  width: 16px;
+  height: 220px;
+  border-radius: 3px;
+  border: 1px solid rgba(200, 220, 255, 0.4);
+  /* CORRECTED: red on top (high), violet on bottom (low) */
+  background: linear-gradient(
+    to bottom,
+    #c00000 0%, #ff5500 10%, #ff9900 18%,
+    #c8e000 28%, #66dd00 38%, #00e88a 48%,
+    #00c8ff 62%, #1f7fd8 74%, #3a30e0 86%, #8a2be2 100%
+  );
+}
+
+#panel-controls {
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  max-width: 94%;
+}
+
+#panel-controls label {
+  color: #9fb8d8;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+#v-slider {
+  width: 240px;
+  height: 5px;
+  accent-color: #2a7fd8;
+  cursor: pointer;
+}
+
+#v-readout {
+  color: #7fd8ff;
+  font-weight: bold;
+  min-width: 65px;
+  text-align: left;
+}
+
+.mesh-select {
+  padding: 5px 10px;
+  font-family: 'Times New Roman', serif;
+  font-size: 13px;
+  border: 1px solid rgba(120, 200, 255, 0.4);
+  border-radius: 6px;
+  background: rgba(20, 40, 70, 0.95);
+  color: #eaf4ff;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.btn {
+  padding: 6px 14px;
+  font-family: 'Times New Roman', serif;
+  font-size: 13px;
+  border: 1px solid rgba(120, 200, 255, 0.4);
+  border-radius: 6px;
+  background: linear-gradient(135deg, #12325c, #1e4a80);
+  color: #eaf4ff;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.2s;
+}
+
+.btn:hover {
+  background: linear-gradient(135deg, #1a4a80, #2e6fb8);
+  box-shadow: 0 0 14px rgba(80, 200, 255, 0.55);
+}
+
+/* ================= PLOTLY FIGURE ================= */
+#plot-convergence {
+  width: 100%;
+  height: 620px;
+  border-radius: 12px;
+  background: #061020;
+}
+
+/* ================= INTERACTIVE MATRIX ================= */
+#matrix-svg {
+  display: block;
+  margin: 0 auto;
+  background: transparent;
+}
+
+.matrix-tooltip {
+  position: absolute;
+  background: rgba(20, 40, 70, 0.96);
+  color: #eaf4ff;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  border: 1px solid rgba(120, 200, 255, 0.5);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 100;
+  font-family: 'Times New Roman', serif;
+}
+
+/* ================= TABLES ================= */
+table.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 20px 0;
+  font-size: 14px;
+}
+
+table.data-table th,
+table.data-table td {
+  padding: 11px 16px;
+  text-align: center;
+  border-bottom: 1px solid rgba(120, 200, 255, 0.18);
+}
+
+table.data-table th {
+  background: rgba(30, 74, 128, 0.45);
+  color: #7fd8ff;
+  font-weight: bold;
+  letter-spacing: 0.4px;
+  font-size: 13.5px;
+}
+
+table.data-table td {
+  color: #d8e8ff;
+}
+
+table.data-table tr:hover td {
+  background: rgba(120, 200, 255, 0.08);
+}
+
+/* ================= FOOTER ================= */
+.footer-frame {
+  text-align: center;
+  padding: 50px 40px 40px;
+}
+
+.footer-frame .lab {
+  font-size: 22px;
+  color: #ffd86b;
+  font-weight: bold;
+  margin-bottom: 18px;
+  text-shadow: 0 0 18px rgba(255, 216, 107, 0.6);
+  letter-spacing: 0.5px;
+}
+
+.footer-frame .credit-line {
+  font-size: 15px;
+  color: #cfe4ff;
+  margin: 8px 0;
+  line-height: 1.7;
+}
+
+.footer-frame .credit-line strong { color: #7fd8ff; }
+
+.colab-link {
+  display: inline-block;
+  margin-top: 22px;
+  padding: 12px 26px;
+  background: linear-gradient(135deg, #0e4a80, #1a6fb8);
+  color: #ffffff;
+  text-decoration: none;
+  border-radius: 9px;
+  font-weight: bold;
+  font-size: 14px;
+  border: 1px solid rgba(120, 200, 255, 0.45);
+  transition: all 0.25s;
+  letter-spacing: 0.3px;
+}
+
+.colab-link:hover {
+  background: linear-gradient(135deg, #1a6fb8, #2e8bd8);
+  box-shadow: 0 0 26px rgba(80, 200, 255, 0.65);
+  transform: translateY(-2px);
+}
+
+/* ================= RESPONSIVE ================= */
+@media (max-width: 900px) {
+  .glass-frame { padding: 22px 20px; }
+  .bismillah { font-size: 26px; }
+  .hoval-khallaq { font-size: 16px; letter-spacing: 3px; }
+  .main-title { font-size: 19px; }
+  #viewer-frame { height: 480px; }
+  #panel-colorbar { display: none; }
+  #v-slider { width: 140px; }
+  #plot-convergence { height: 480px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     BACKGROUND LAYERS
+     ============================================================ -->
+<canvas id="space-canvas"></canvas>
+<canvas id="bubbles-canvas"></canvas>
+<div id="space-overlay"></div>
+
+<div class="content">
+
+  <!-- ============================================================
+       HEADER FRAME
+       ============================================================ -->
+  <div class="glass-frame header-frame">
+    <div class="bismillah">بِسْمِ اللهِ الرَّحْمٰنِ الرَّحِيْم</div>
+    <div class="hoval-khallaq">هُوَ الْخَلَّاقُ الْعَلِيم</div>
+
+    <h1 class="main-title">
+      Numerical Modeling and Validation of an Electrostatic Nanotweezer
+      using COMSOL Multiphysics
+    </h1>
+    <div class="subtitle">
+      3D Interactive Simulation Dashboard — Small Size Structures Laboratory
+    </div>
+    <div class="authors-line">
+      Faeez Kavianpour &middot; M. R. Gharib &middot; A. Koochi &middot; M. Goharimanesh
+    </div>
+  </div>
+
+  <!-- ============================================================
+       SECTION 1 — OVERVIEW
+       ============================================================ -->
+  <div class="glass-frame">
+    <h2 class="section-title">1 &middot; Overview</h2>
+    <p>
+      Precise manipulation of nanoscale entities is a cornerstone of modern
+      nanorobotics, nano-assembly, and single-cell biomedical investigations.
+      <span class="highlight">Electrostatic nanotweezers</span> are particularly
+      attractive due to their ultra-low power consumption, microsecond-scale
+      switching response, IC-compatibility, and absence of thermal dissipation.
+      However, they are inherently prone to the
+      <span class="highlight">pull-in instability</span> &mdash; a saddle-node
+      bifurcation where the nonlinear electrostatic force overcomes the linear
+      elastic restoring force of the cantilever arms.
+    </p>
+    <p>
+      In this study, a fully coupled 3D finite element model of the benchmark
+      <span class="highlight">Chang et al. (2009)</span> carbon nanowire
+      nanotweezer is developed in COMSOL Multiphysics, coupled self-consistently
+      with the electrostatic domain via the Maxwell stress tensor and an ALE
+      moving-mesh formulation. The predicted pull-in voltage of
+      <span class="highlight">99.4 V</span> agrees with the experimental value
+      of 101.0 V within 1.58%.
+    </p>
+  </div>
+
+  <!-- ============================================================
+       SECTION 2 — 3D VIEWER
+       ============================================================ -->
+  <div class="glass-frame">
+    <h2 class="section-title">2 &middot; Interactive 3D Nanotweezer Simulation</h2>
+    <p>
+      The viewer below reproduces the COMSOL displacement field of the two
+      carbon nanowires as a function of the applied voltage. Use the
+      <span class="highlight">mouse</span> to rotate, zoom and pan the scene,
+      the <span class="highlight">slider</span> to sweep the voltage, and the
+      <span class="highlight">dropdown</span> to switch between the four mesh
+      densities. The colorbar maps the local deflection magnitude in micrometres.
+    </p>
+
+    <div id="viewer-frame">
+      <div id="scene-container"></div>
+
+      <div class="panel" id="panel-voltage">
+        <div class="row"><span class="lbl">Applied Voltage</span><span class="val" id="v-top">99.4 V</span></div>
+        <div class="row"><span class="lbl">Mesh</span><span class="val" id="mesh-name">Extra Fine</span></div>
+        <div class="row"><span class="lbl">Tip Gap</span><span class="val" id="gap-top">3.26 μm</span></div>
+        <div class="row"><span class="lbl">Deflection</span><span class="val" id="def-top">1.82 μm</span></div>
+      </div>
+
+      <div class="panel" id="panel-colorbar">
+        <div class="unit">μm</div>
+        <div class="arrow">▲ 1.58</div>
+        <div class="bar"></div>
+        <div class="arrow">▼ 0.00</div>
+      </div>
+
+      <div class="panel" id="panel-controls">
+        <label for="mesh-select">Mesh:</label>
+        <select id="mesh-select" class="mesh-select">
+          <option value="coarse">Coarse</option>
+          <option value="fine">Fine</option>
+          <option value="finer">Finer</option>
+          <option value="extra" selected>Extra Fine</option>
+        </select>
+
+        <label for="v-slider">V:</label>
+        <input type="range" id="v-slider" min="0" max="99.5" step="0.5" value="99.4">
+        <span id="v-readout">99.4 V</span>
+
+        <button class="btn" id="btn-play">▶ Play</button>
+        <button class="btn" id="btn-pause">⏸ Pause</button>
+        <button class="btn" id="btn-reset">↺ Reset</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       SECTION 3 — MESH CONVERGENCE FIGURE (from Colab code)
+       ============================================================ -->
+  <div class="glass-frame">
+    <h2 class="section-title">3 &middot; Mesh Convergence Analysis</h2>
+    <p>
+      The consolidated convergence map below combines four interdependent mesh
+      metrics into a single unified visualization: mesh type, total number of
+      elements, total number of nodes, and the resulting final tip gap. As the
+      mesh density increases, the final tip gap exhibits a monotonic and
+      asymptotic decay from 4.84 μm (Coarse) to 3.26 μm (Extra Fine), while the
+      average element quality simultaneously improves from 0.58 to 0.66.
+    </p>
+
+    <div id="plot-convergence"></div>
+  </div>
+
+  <!-- ============================================================
+       SECTION 4 — INTERACTIVE MATRIX
+       ============================================================ -->
+  <div class="glass-frame">
+    <h2 class="section-title">4 &middot; Interactive Mesh &amp; Node Matrix</h2>
+    <p>
+      The matrix below lists the four mesh densities along with their key
+      numerical metrics. Hover over any cell to highlight it and inspect the
+      exact value. This table is purely informational — no color coding is
+      applied to the matrix cells themselves.
+    </p>
+
+    <svg id="matrix-svg"></svg>
+    <div class="matrix-tooltip" id="matrix-tooltip"></div>
+  </div>
+
+  <!-- ============================================================
+       SECTION 5 — VALIDATION TABLES
+       ============================================================ -->
+  <div class="glass-frame">
+    <h2 class="section-title">5 &middot; Experimental &amp; Numerical Validation</h2>
+    <p>
+      The predicted pull-in voltage of <span class="highlight">99.4 V</span>
+      differs by only 1.58% from the experimental threshold of 101.0 V reported
+      by Chang et al. (2009), and matches the 1D numerical model of Koochi et
+      al. (2022) exactly. The mean relative error against experimental data is
+      <span class="highlight">9.13%</span>, and against numerical benchmarks
+      only <span class="highlight">0.62%</span>.
+    </p>
+
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Metric</th>
+          <th>Experimental [22]</th>
+          <th>Numerical [29]</th>
+          <th>Present COMSOL</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Pull-in Voltage</td>      <td>101.0 V</td>    <td>99.4 V</td>    <td>99.4 V</td></tr>
+        <tr><td>Final Stable Tip Gap</td> <td>3.50 μm</td>    <td>3.16 μm</td>   <td>3.72 μm</td></tr>
+        <tr><td>Mean Relative Error</td>  <td>—</td>          <td>0.62%</td>     <td>9.13%</td></tr>
+        <tr><td>RMSE</td>                 <td>0.4184 μm</td>  <td>0.3151 μm</td> <td>—</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ============================================================
+       FOOTER FRAME — CREDITS
+       ============================================================ -->
+  <div class="glass-frame footer-frame">
+    <div class="lab">Small Size Structures Laboratory</div>
+
+    <div class="credit-line">
+      <strong>Supervisor:</strong> Dr. Mohammadreza Gharib, and Dr. Ali Koochi
+    </div>
+    <div class="credit-line">
+      <strong>M.Sc. Thesis:</strong> Faeez Kavianpour &mdash; University of Torbat Heydarieh
+    </div>
+    <div class="credit-line">
+      <strong>Design &amp; Visualization:</strong> Dr. Masoud Goharimanesh (Thesis Advisor)
+    </div>
+
+    <a class="colab-link"
+       href="https://colab.research.google.com/drive/1hff36xWHjMhqKlGwVmIPRi2NAmZhsrjk#scrollTo=qJ-noc1ju8TN"
+       target="_blank" rel="noopener">
+       📓 View Full Python Source Code in Google Colab
+    </a>
+  </div>
+
+</div>
+
+<!-- ============================================================
+     SPACE BACKGROUND — stars + neural network
+     ============================================================ -->
+<script>
+(function spaceBackground() {
+  const canvas = document.getElementById('space-canvas');
+  const ctx = canvas.getContext('2d');
+  let W, H;
+
+  function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  /* -------- twinkling stars -------- */
+  const stars = [];
+  for (let i = 0; i < 280; i++) {
+    stars.push({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      r: Math.random() * 1.5 + 0.3,
+      tw: Math.random() * Math.PI * 2,
+      sp: 0.002 + Math.random() * 0.006
+    });
+  }
+
+  /* -------- neural network nodes -------- */
+  const neurons = [];
+  const N_NEURONS = Math.min(60, Math.floor(W * H / 32000));
+  for (let i = 0; i < N_NEURONS; i++) {
+    neurons.push({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      vx: (Math.random() - 0.5) * 0.25,
+      vy: (Math.random() - 0.5) * 0.25,
+      r: 0.9 + Math.random() * 1.4,
+      pulse: Math.random() * Math.PI * 2
+    });
+  }
+
+  let mouse = { x: -9999, y: -9999 };
+  window.addEventListener('mousemove', e => {
+    mouse.x = e.clientX; mouse.y = e.clientY;
+  });
+
+  function draw() {
+    ctx.fillStyle = 'rgba(0, 3, 8, 0.35)';
+    ctx.fillRect(0, 0, W, H);
+
+    /* stars */
+    for (const s of stars) {
+      s.tw += s.sp;
+      const alpha = 0.35 + 0.55 * Math.abs(Math.sin(s.tw));
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(200, 230, 255, ${alpha})`;
+      ctx.shadowColor = 'rgba(150, 210, 255, 0.9)';
+      ctx.shadowBlur = 5;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+
+    /* neurons update */
+    for (const n of neurons) {
+      n.x += n.vx; n.y += n.vy;
+      if (n.x < 0 || n.x > W) n.vx *= -1;
+      if (n.y < 0 || n.y > H) n.vy *= -1;
+      n.pulse += 0.03;
+
+      const dx = n.x - mouse.x, dy = n.y - mouse.y;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < 18000) {
+        const f = (18000 - d2) / 18000;
+        n.x += dx * 0.005 * f;
+        n.y += dy * 0.005 * f;
+      }
+    }
+
+    /* neural links */
+    for (let i = 0; i < neurons.length; i++) {
+      for (let j = i + 1; j < neurons.length; j++) {
+        const dx = neurons[i].x - neurons[j].x;
+        const dy = neurons[i].y - neurons[j].y;
+        const d  = Math.sqrt(dx * dx + dy * dy);
+        if (d < 150) {
+          const a = (1 - d / 150) * 0.32;
+          const p = (Math.sin(neurons[i].pulse) + 1) * 0.5;
+          ctx.strokeStyle = `rgba(80, 180, 255, ${a * (0.55 + 0.45 * p)})`;
+          ctx.lineWidth = 0.55;
+          ctx.beginPath();
+          ctx.moveTo(neurons[i].x, neurons[i].y);
+          ctx.lineTo(neurons[j].x, neurons[j].y);
+          ctx.stroke();
+        }
+      }
+    }
+
+    /* neurons */
+    for (const n of neurons) {
+      const p = (Math.sin(n.pulse) + 1) * 0.5;
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.r + p * 0.7, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(140, 220, 255, ${0.7 + 0.3 * p})`;
+      ctx.shadowColor = 'rgba(80, 200, 255, 0.9)';
+      ctx.shadowBlur  = 10;
+      ctx.fill();
+      ctx.shadowBlur  = 0;
+    }
+
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+</script>
+
+<!-- ============================================================
+     FLOATING BUBBLES BACKGROUND
+     ============================================================ -->
+<script>
+(function floatingBubbles() {
+  const canvas = document.getElementById('bubbles-canvas');
+  const ctx = canvas.getContext('2d');
+  let W, H;
+
+  function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  const bubbles = [];
+  const N_BUBBLES = 28;
+
+  for (let i = 0; i < N_BUBBLES; i++) {
+    bubbles.push({
+      x: Math.random() * W,
+      y: H + Math.random() * H,
+      r: 12 + Math.random() * 42,
+      speed: 0.25 + Math.random() * 0.9,
+      drift: (Math.random() - 0.5) * 0.4,
+      phase: Math.random() * Math.PI * 2,
+      hue: 190 + Math.random() * 80      /* blue → violet */
+    });
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    for (const b of bubbles) {
+      b.y -= b.speed;
+      b.phase += 0.012;
+      b.x += Math.sin(b.phase) * b.drift;
+      if (b.y + b.r < -30) {
+        b.y = H + b.r + Math.random() * 120;
+        b.x = Math.random() * W;
+        b.r = 12 + Math.random() * 42;
+      }
+
+      /* outer glow */
+      const grd = ctx.createRadialGradient(
+        b.x, b.y, b.r * 0.1,
+        b.x, b.y, b.r);
+      grd.addColorStop(0,   `hsla(${b.hue}, 90%, 75%, 0.28)`);
+      grd.addColorStop(0.7, `hsla(${b.hue}, 85%, 60%, 0.10)`);
+      grd.addColorStop(1,   `hsla(${b.hue}, 85%, 60%, 0.00)`);
+
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+      ctx.fillStyle = grd;
+      ctx.fill();
+
+      /* thin bright rim */
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+      ctx.strokeStyle = `hsla(${b.hue}, 95%, 80%, 0.35)`;
+      ctx.lineWidth = 1.0;
+      ctx.stroke();
+
+      /* small specular highlight */
+      ctx.beginPath();
+      ctx.arc(b.x - b.r * 0.35, b.y - b.r * 0.35, b.r * 0.16, 0, Math.PI * 2);
+      ctx.fillStyle = `hsla(${b.hue}, 100%, 95%, 0.5)`;
+      ctx.fill();
+    }
+
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+</script>
+
+<!-- ============================================================
+     3D SCENE — Nanotweezer
+     ============================================================ -->
+<script>
+/* ---------------- Excel data ---------------- */
+const V_DATA = [
+  0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60,
+  65, 70, 75, 80, 85, 90, 91, 92, 93, 94, 95, 96, 97,
+  98, 99, 99.1, 99.2, 99.3, 99.4, 99.5
+];
+
+const W_COARSE = [
+  0, 0.0032, 0.0130, 0.0290, 0.0515, 0.0805, 0.1155, 0.1575, 0.2055,
+  0.2600, 0.3210, 0.3870, 0.4620, 0.5420, 0.6300, 0.7150, 0.8100, 0.9120,
+  1.0220, 1.0450, 1.0700, 1.0950, 1.1180, 1.1350, 1.1550, 1.1800, 1.2000,
+  1.2250, 1.2300, 1.2350, 1.2380, 1.2400, 1.2450
+];
+
+const W_FINE = [
+  0, 0.00409, 0.0165, 0.0371, 0.0659, 0.103, 0.148, 0.202, 0.263,
+  0.333, 0.411, 0.496, 0.59, 0.691, 0.80, 0.917, 1.04, 1.17, 1.31,
+  1.34, 1.37, 1.40, 1.43, 1.45, 1.48, 1.51, 1.54, 1.57, 1.58, 1.58,
+  1.58, 1.59, 1.60
+];
+
+const W_FINER = [
+  0, 0.00466, 0.0186, 0.0419, 0.0745, 0.116, 0.167, 0.228, 0.297,
+  0.376, 0.464, 0.561, 0.666, 0.78, 0.903, 1.03, 1.17, 1.32, 1.48,
+  1.51, 1.54, 1.57, 1.60, 1.64, 1.67, 1.70, 1.74, 1.77, 1.77, 1.78,
+  1.78, 1.78, 1.79
+];
+
+const W_EXTRA = [
+  0, 0.00476, 0.019, 0.0428, 0.0761, 0.119, 0.171, 0.233, 0.304,
+  0.384, 0.474, 0.573, 0.681, 0.797, 0.923, 1.06, 1.20, 1.35, 1.51,
+  1.54, 1.57, 1.60, 1.64, 1.67, 1.70, 1.74, 1.77, 1.81, 1.81, 1.82,
+  1.82, 1.82, 1.83
+];
+
+function interpDeflection(V, arr) {
+  if (V <= V_DATA[0]) return arr[0];
+  if (V >= V_DATA[V_DATA.length - 1]) return arr[arr.length - 1];
+  for (let i = 0; i < V_DATA.length - 1; i++) {
+    if (V >= V_DATA[i] && V <= V_DATA[i + 1]) {
+      const f = (V - V_DATA[i]) / (V_DATA[i + 1] - V_DATA[i]);
+      return arr[i] + f * (arr[i + 1] - arr[i]);
+    }
+  }
+  return arr[arr.length - 1];
+}
+
+function getDeflection(V, mesh) {
+  const map = { coarse: W_COARSE, fine: W_FINE, finer: W_FINER, extra: W_EXTRA };
+  return interpDeflection(V, map[mesh]);
+}
+
+/* ---------------- Geometry parameters ---------------- */
+const CYL_RADIUS = 5.0;
+const CYL_LEN    = 28.0;
+const ARM_GAP    = 4.0;
+const ARM_THICK  = 0.55;
+const SEGMENTS   = 80;
+
+/* ---------------- Colormap (CORRECTED orientation) ---------------- */
+function comsolColor(t) {
+  /* t = 0 → base (violet/blue) ; t = 1 → tip (red) */
+  t = Math.max(0, Math.min(1, t));
+  const stops = [
+    [0.00, 0x8a2be2], [0.15, 0x3a30e0], [0.30, 0x1f7fd8],
+    [0.45, 0x00c8ff], [0.55, 0x00e88a], [0.68, 0x66dd00],
+    [0.78, 0xc8e000], [0.88, 0xff9900], [1.00, 0xc00000]
+  ];
+  for (let i = 0; i < stops.length - 1; i++) {
+    const [t0, c0] = stops[i], [t1, c1] = stops[i + 1];
+    if (t >= t0 && t <= t1) {
+      const f = (t - t0) / (t1 - t0);
+      const r0 = (c0 >> 16) & 255, g0 = (c0 >> 8) & 255, b0 = c0 & 255;
+      const r1 = (c1 >> 16) & 255, g1 = (c1 >> 8) & 255, b1 = c1 & 255;
+      return new THREE.Color(
+        (r0 + (r1 - r0) * f) / 255,
+        (g0 + (g1 - g0) * f) / 255,
+        (b0 + (b1 - b0) * f) / 255
+      );
+    }
+  }
+  return new THREE.Color(0xffffff);
+}
+
+/* ---------------- Scene / Camera / Renderer ---------------- */
+const container = document.getElementById('scene-container');
+
+const scene = new THREE.Scene();
+scene.background = null;
+
+const camera = new THREE.PerspectiveCamera(
+  38, container.clientWidth / container.clientHeight, 0.1, 3000);
+camera.position.set(38, 22, 42);
+camera.lookAt(0, 0, 0);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setSize(container.clientWidth, container.clientHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setClearColor(0x000000, 0);
+container.appendChild(renderer.domElement);
+
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.rotateSpeed   = 0.75;
+controls.zoomSpeed     = 0.9;
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.75));
+const d1 = new THREE.DirectionalLight(0xffffff, 0.9);
+d1.position.set(20, 40, 30);
+scene.add(d1);
+const d2 = new THREE.DirectionalLight(0x88ccff, 0.5);
+d2.position.set(-25, -15, -20);
+scene.add(d2);
+
+/* ---------------- Anchor cylinders ---------------- */
+const anchorMat = new THREE.MeshPhysicalMaterial({
+  color: 0x3a7fc0, metalness: 0.3, roughness: 0.6,
+  transparent: true, opacity: 0.14, side: THREE.DoubleSide
+});
+const anchorGeo = new THREE.CylinderGeometry(
+  CYL_RADIUS, CYL_RADIUS, CYL_LEN, 64, 1, true);
+const anchor = new THREE.Mesh(anchorGeo, anchorMat);
+anchor.rotation.x = Math.PI / 2;
+scene.add(anchor);
+
+function makeCircleOutline(z) {
+  const pts = [];
+  for (let i = 0; i <= 128; i++) {
+    const a = (i / 128) * Math.PI * 2;
+    pts.push(new THREE.Vector3(
+      CYL_RADIUS * Math.cos(a),
+      CYL_RADIUS * Math.sin(a),
+      z));
+  }
+  const geo = new THREE.BufferGeometry().setFromPoints(pts);
+  const mat = new THREE.LineBasicMaterial({
+    color: 0x7fd8ff, transparent: true, opacity: 0.7
+  });
+  return new THREE.Line(geo, mat);
+}
+scene.add(makeCircleOutline(-CYL_LEN / 2));
+scene.add(makeCircleOutline( CYL_LEN / 2));
+
+/* ---------------- Arms ---------------- */
+function buildArm(sign) {
+  const pts = [];
+  for (let i = 0; i <= SEGMENTS; i++) {
+    const z = -CYL_LEN / 2 + (i / SEGMENTS) * CYL_LEN;
+    pts.push(new THREE.Vector3(0, sign * ARM_GAP, z));
+  }
+  const curve = new THREE.CatmullRomCurve3(pts);
+  const geo   = new THREE.TubeGeometry(curve, SEGMENTS, ARM_THICK, 12, false);
+
+  const count = geo.attributes.position.count;
+  geo.setAttribute('color',
+    new THREE.BufferAttribute(new Float32Array(count * 3), 3));
+
+  const mat = new THREE.MeshPhysicalMaterial({
+    vertexColors: true, metalness: 0.5, roughness: 0.3,
+    clearcoat: 1.0, clearcoatRoughness: 0.12,
+    emissive: 0x112244, emissiveIntensity: 0.35
+  });
+
+  const mesh = new THREE.Mesh(geo, mat);
+  scene.add(mesh);
+  return { mesh, sign };
+}
+
+const armTop    = buildArm( 1);
+const armBottom = buildArm(-1);
+
+function deflectionProfile(t) {
+  return t * t * (3 - 2 * t);
+}
+
+function updateArm(arm, deflection) {
+  const { sign } = arm;
+  const pts = [];
+  for (let i = 0; i <= SEGMENTS; i++) {
+    const t = i / SEGMENTS;
+    const z = -CYL_LEN / 2 + (1 - t) * CYL_LEN;
+    const shape = deflectionProfile(t);
+    const y = sign * (ARM_GAP - deflection * shape);
+    pts.push(new THREE.Vector3(0, y, z));
+  }
+
+  const newCurve = new THREE.CatmullRomCurve3(pts);
+  const newGeo   = new THREE.TubeGeometry(
+    newCurve, SEGMENTS, ARM_THICK, 12, false);
+
+  const pos = newGeo.attributes.position;
+  const colors = new Float32Array(pos.count * 3);
+  for (let i = 0; i < pos.count; i++) {
+    const z = pos.getZ(i);
+    const t = (CYL_LEN / 2 - z) / CYL_LEN;
+    const c = comsolColor(t);
+    colors[i * 3]     = c.r;
+    colors[i * 3 + 1] = c.g;
+    colors[i * 3 + 2] = c.b;
+  }
+  newGeo.setAttribute('color',
+    new THREE.BufferAttribute(colors, 3));
+
+  arm.mesh.geometry.dispose();
+  arm.mesh.geometry = newGeo;
+}
+
+/* ---------------- Bounding grid ---------------- */
+function makeBoundingGrid() {
+  const halfZ = CYL_LEN / 2 + 3;
+  const halfY = 10;
+  const halfX = 8;
+  const group = new THREE.Group();
+  const c1 = 0x3a6a9a, c2 = 0x1a3a5a;
+
+  const gBack = new THREE.GridHelper(halfZ * 2, 14, c1, c2);
+  gBack.rotation.x = Math.PI / 2;
+  gBack.rotation.z = Math.PI / 2;
+  gBack.position.set(0, -halfY, 0);
+  group.add(gBack);
+
+  const gBottom = new THREE.GridHelper(halfZ * 2, 14, c1, c2);
+  gBottom.rotation.x = Math.PI / 2;
+  gBottom.position.set(0, -halfY, 0);
+  group.add(gBottom);
+
+  const gLeft = new THREE.GridHelper(halfZ * 2, 14, c1, c2);
+  gLeft.rotation.z = Math.PI / 2;
+  gLeft.rotation.y = Math.PI / 2;
+  gLeft.position.set(-halfX, 0, 0);
+  group.add(gLeft);
+
+  const gRight = new THREE.GridHelper(halfZ * 2, 14, c1, c2);
+  gRight.rotation.z = Math.PI / 2;
+  gRight.rotation.y = Math.PI / 2;
+  gRight.position.set(halfX, 0, 0);
+  group.add(gRight);
+
+  group.children.forEach(g => {
+    g.material.transparent = true;
+    g.material.opacity = 0.45;
+  });
+  return group;
+}
+scene.add(makeBoundingGrid());
+
+/* ---------------- UI logic ---------------- */
+const V_MAX = 99.5;
+let currentV = 99.4;
+let currentMesh = 'extra';
+
+const slider  = document.getElementById('v-slider');
+const readout = document.getElementById('v-readout');
+const vTop    = document.getElementById('v-top');
+const meshLbl = document.getElementById('mesh-name');
+const gapTop  = document.getElementById('gap-top');
+const defTop  = document.getElementById('def-top');
+
+function applyVoltage(V) {
+  currentV = Math.max(0, Math.min(V_MAX, V));
+  const def = getDeflection(currentV, currentMesh);
+
+  updateArm(armTop,    def);
+  updateArm(armBottom, def);
+
+  slider.value = currentV.toFixed(1);
+  readout.textContent = currentV.toFixed(1) + ' V';
+  vTop.textContent    = currentV.toFixed(1) + ' V';
+  defTop.textContent  = def.toFixed(2) + ' μm';
+  gapTop.textContent  = (6.9 - 2 * def).toFixed(2) + ' μm';
+}
+
+document.getElementById('mesh-select').addEventListener('change', e => {
+  currentMesh = e.target.value;
+  meshLbl.textContent = {
+    coarse: 'Coarse', fine: 'Fine', finer: 'Finer', extra: 'Extra Fine'
+  }[currentMesh];
+  applyVoltage(currentV);
+});
+
+slider.addEventListener('input', e => applyVoltage(parseFloat(e.target.value)));
+
+let animTimer = null, animDir = -1;
+document.getElementById('btn-play').addEventListener('click', () => {
+  if (animTimer) return;
+  animTimer = setInterval(() => {
+    let v = currentV + animDir * 1.2;
+    if (v <= 0)     { v = 0;     animDir =  1; }
+    if (v >= V_MAX) { v = V_MAX; animDir = -1; }
+    applyVoltage(v);
+  }, 55);
+});
+document.getElementById('btn-pause').addEventListener('click', () => {
+  clearInterval(animTimer); animTimer = null;
+});
+document.getElementById('btn-reset').addEventListener('click', () => {
+  clearInterval(animTimer); animTimer = null;
+  animDir = -1;
+  applyVoltage(V_MAX);
+});
+
+window.addEventListener('resize', () => {
+  const w = container.clientWidth, h = container.clientHeight;
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+});
+
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+
+applyVoltage(V_MAX);
+</script>
+
+<!-- ============================================================
+     MESH CONVERGENCE FIGURE (reproduced from the Colab code)
+     ============================================================ -->
+<script>
+(function buildConvergencePlot() {
+  const meshTypes = ['Coarse', 'Fine', 'Finer', 'Extra Fine'];
+  const elements  = [7014, 55796, 311607, 946720];
+  const nodes     = [14865, 103239, 639393, 1985662];
+  const tipGap    = [4.84, 3.72, 3.34, 3.26];
+
+  const colors      = ['#1F4E79', '#2E8B57', '#E67E22', '#C0392B'];
+  const fillColors  = ['#D6E4F0', '#D5F0E0', '#FCE5CE', '#F8D5D0'];
+
+  const xPositions = [0, 1, 2, 3];
+
+  const traces = [];
+
+  /* boxes with labels */
+  const sizes = [0.42, 0.52, 0.62, 0.72];
+
+  xPositions.forEach((x, i) => {
+    const w = sizes[i];
+    const x0 = x - w / 2;
+    const x1 = x + w / 2;
+    const y0 = tipGap[i] - w / 2;
+    const y1 = tipGap[i] + w / 2;
+
+    /* rectangle as scatter of four corners with lines */
+    traces.push({
+      x: [x0, x1, x1, x0, x0],
+      y: [y0, y0, y1, y1, y0],
+      mode: 'lines',
+      line: { color: colors[i], width: 3 },
+      fill: 'toself',
+      fillcolor: fillColors[i],
+      hoverinfo: 'skip',
+      showlegend: false
+    });
+
+    /* label inside box */
+    traces.push({
+      x: [x],
+      y: [tipGap[i]],
+      mode: 'text',
+      text: [meshTypes[i]],
+      textfont: { family: 'Times New Roman', size: 13 + i * 0.4, color: colors[i] },
+      hoverinfo: 'skip',
+      showlegend: false
+    });
+  });
+
+  /* top rail (element axis) */
+  const railY = 5.15;
+  traces.push({
+    x: [-0.5, 3.6],
+    y: [railY, railY],
+    mode: 'lines',
+    line: { color: '#222', width: 2.2 },
+    hoverinfo: 'skip',
+    showlegend: false
+  });
+
+  /* tick marks with element labels */
+  xPositions.forEach((x, i) => {
+    traces.push({
+      x: [x, x],
+      y: [railY, railY + 0.07],
+      mode: 'lines',
+      line: { color: '#222', width: 1.8 },
+      hoverinfo: 'skip',
+      showlegend: false
+    });
+    traces.push({
+      x: [x],
+      y: [railY + 0.10],
+      mode: 'text',
+      text: [elements[i].toLocaleString()],
+      textfont: { family: 'Times New Roman', size: 11 },
+      textangle: -55,
+      hoverinfo: 'skip',
+      showlegend: false
+    });
+  });
+
+  const layout = {
+    font: { family: 'Times New Roman, serif', size: 13, color: '#eaf4ff' },
+    paper_bgcolor: '#061020',
+    plot_bgcolor:  '#061020',
+    xaxis: {
+      range: [-0.7, 3.8],
+      showgrid: false,
+      zeroline: false,
+      showticklabels: false,
+      showline: false,
+      fixedrange: true
+    },
+    yaxis: {
+      range: [2.85, 5.45],
+      tickmode: 'array',
+      tickvals: tipGap,
+      ticktext: tipGap.map(v => v.toFixed(2)),
+      showgrid: true,
+      gridcolor: 'rgba(120, 200, 255, 0.12)',
+      zeroline: false,
+      showline: true,
+      linecolor: '#7fd8ff',
+      linewidth: 2,
+      ticks: 'outside',
+      tickcolor: '#7fd8ff',
+      tickfont: { family: 'Times New Roman', size: 13, color: '#eaf4ff' },
+      fixedrange: true
+    },
+    showlegend: false,
+    margin: { l: 70, r: 40, t: 40, b: 40 },
+    height: 560,
+    hovermode: false,
+    annotations: [
+      {
+        x: -0.65, y: 5.30,
+        xref: 'x', yref: 'y',
+        text: '<b>Tip Gap (μm)</b>',
+        showarrow: false,
+        font: { family: 'Times New Roman', size: 15, color: '#ffd86b' },
+        xanchor: 'left'
+      },
+      {
+        x: 3.62, y: 5.30,
+        xref: 'x', yref: 'y',
+        text: '<b>Number of Elements</b>',
+        showarrow: false,
+        textangle: -55,
+        font: { family: 'Times New Roman', size: 13, color: '#ffd86b' },
+        xanchor: 'left'
+      },
+      {
+        x: 2.55, y: 4.95,
+        xref: 'x', yref: 'y',
+        text: '<b>Number of Nodes</b>',
+        showarrow: false,
+        font: { family: 'Times New Roman', size: 13, color: '#7fd8ff' },
+        xanchor: 'center'
+      },
+      {
+        x: 2.55, y: 4.75,
+        xref: 'x', yref: 'y',
+        text: `◻ ${nodes[0].toLocaleString()}<br><br>◻ ${nodes[3].toLocaleString()}`,
+        showarrow: false,
+        align: 'center',
+        font: { family: 'Times New Roman', size: 12, color: '#eaf4ff' },
+        bgcolor: 'rgba(8, 16, 32, 0.85)',
+        bordercolor: 'rgba(120, 200, 255, 0.4)',
+        borderwidth: 1,
+        borderpad: 8
+      }
+    ]
+  };
+
+  Plotly.newPlot('plot-convergence', traces, layout, {
+    responsive: true,
+    displayModeBar: false
+  });
+})();
+</script>
+
+<!-- ============================================================
+     INTERACTIVE MATRIX (NO color coding) — D3.js
+     ============================================================ -->
+<script>
+(function meshMatrix() {
+  const meshData = [
+    { name: 'Coarse',     elements: 7014,    nodes: 14865,    quality: 0.5800, gap: 4.84 },
+    { name: 'Fine',       elements: 55796,   nodes: 103239,   quality: 0.6485, gap: 3.72 },
+    { name: 'Finer',      elements: 311607,  nodes: 639393,   quality: 0.6524, gap: 3.34 },
+    { name: 'Extra Fine', elements: 946720,  nodes: 1985662,  quality: 0.6598, gap: 3.26 }
+  ];
+
+  const metrics = [
+    { key: 'elements', label: 'Elements',      fmt: v => v.toLocaleString() },
+    { key: 'nodes',    label: 'Nodes',         fmt: v => v.toLocaleString() },
+    { key: 'quality',  label: 'Avg Quality',   fmt: v => v.toFixed(4) },
+    { key: 'gap',      label: 'Tip Gap (μm)',  fmt: v => v.toFixed(2) }
+  ];
+
+  const svg = d3.select('#matrix-svg');
+  const container = document.getElementById('matrix-svg').parentElement;
+  const tooltip = document.getElementById('matrix-tooltip');
+
+  function draw() {
+    svg.selectAll('*').remove();
+
+    const width  = Math.min(container.clientWidth - 80, 1100);
+    const height = 340;
+    const margin = { top: 50, right: 30, bottom: 30, left: 140 };
+
+    svg.attr('width', width).attr('height', height)
+       .attr('viewBox', `0 0 ${width} ${height}`);
+
+    const innerW = width  - margin.left - margin.right;
+    const innerH = height - margin.top  - margin.bottom;
+
+    const cellW = innerW / metrics.length;
+    const cellH = innerH / meshData.length;
+
+    const g = svg.append('g')
+      .attr('transform', `translate(${margin.left},${margin.top})`);
+
+    /* draw plain cells — NO color coding */
+    meshData.forEach((row, i) => {
+      metrics.forEach((m, j) => {
+        const val = row[m.key];
+
+        g.append('rect')
+          .attr('x', j * cellW)
+          .attr('y', i * cellH)
+          .attr('width', cellW - 4)
+          .attr('height', cellH - 4)
+          .attr('rx', 8)
+          .attr('fill', 'rgba(20, 40, 70, 0.55)')
+          .attr('stroke', 'rgba(120, 200, 255, 0.35)')
+          .attr('stroke-width', 1)
+          .style('cursor', 'pointer')
+          .on('mouseenter', function(evt) {
+            tooltip.style.opacity = 1;
+            tooltip.innerHTML =
+              `<strong>${row.name}</strong> &middot; ${m.label}<br>` +
+              `<span style="color:#7fd8ff">${m.fmt(val)}</span>`;
+            d3.select(this)
+              .attr('fill', 'rgba(80, 180, 255, 0.18)')
+              .attr('stroke', '#ffd86b')
+              .attr('stroke-width', 2);
+          })
+          .on('mousemove', evt => {
+            tooltip.style.left = (evt.pageX + 14) + 'px';
+            tooltip.style.top  = (evt.pageY + 14) + 'px';
+          })
+          .on('mouseleave', function() {
+            tooltip.style.opacity = 0;
+            d3.select(this)
+              .attr('fill', 'rgba(20, 40, 70, 0.55)')
+              .attr('stroke', 'rgba(120, 200, 255, 0.35)')
+              .attr('stroke-width', 1);
+          });
+
+        g.append('text')
+          .attr('x', j * cellW + (cellW - 4) / 2)
+          .attr('y', i * cellH + (cellH - 4) / 2 + 5)
+          .attr('text-anchor', 'middle')
+          .attr('font-family', 'Times New Roman')
+          .attr('font-size', 14)
+          .attr('font-weight', 'bold')
+          .attr('fill', '#eaf4ff')
+          .style('pointer-events', 'none')
+          .text(m.fmt(val));
+      });
+    });
+
+    /* column headers */
+    metrics.forEach((m, j) => {
+      g.append('text')
+        .attr('x', j * cellW + (cellW - 4) / 2)
+        .attr('y', -18)
+        .attr('text-anchor', 'middle')
+        .attr('font-family', 'Times New Roman')
+        .attr('font-size', 14)
+        .attr('font-weight', 'bold')
+        .attr('fill', '#7fd8ff')
+        .text(m.label);
+    });
+
+    /* row labels */
+    meshData.forEach((row, i) => {
+      g.append('text')
+        .attr('x', -16)
+        .attr('y', i * cellH + (cellH - 4) / 2 + 5)
+        .attr('text-anchor', 'end')
+        .attr('font-family', 'Times New Roman')
+        .attr('font-size', 14)
+        .attr('font-weight', 'bold')
+        .attr('fill', '#eaf4ff')
+        .text(row.name);
+    });
+
+    /* title */
+    svg.append('text')
+      .attr('x', width / 2)
+      .attr('y', 22)
+      .attr('text-anchor', 'middle')
+      .attr('font-family', 'Times New Roman')
+      .attr('font-size', 15)
+      .attr('fill', '#9fb8d8')
+      .style('font-style', 'italic')
+      .text('Hover any cell to highlight it and read the exact value');
+  }
+
+  draw();
+  window.addEventListener('resize', draw);
+})();
+</script>
+
+</body>
+</html>
