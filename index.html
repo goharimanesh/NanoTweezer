@@ -1,0 +1,1573 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Electrostatic Nanotweezer — Interactive Simulation</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Times+New+Roman&display=swap" rel="stylesheet">
+
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; overflow: hidden;
+    font-family: 'Times New Roman', serif;
+    background: #000308; color: #e8f4ff;
+    direction: ltr;
+    -webkit-font-smoothing: antialiased; }
+
+  #canvas-host { position: fixed; inset: 0; }
+
+  /* ---------- Header ---------- */
+  #top-header {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 20;
+    padding: 10px 16px 8px;
+    background: linear-gradient(180deg, rgba(0,3,8,0.95) 0%, rgba(0,3,8,0.65) 70%, rgba(0,3,8,0) 100%);
+    text-align: center; pointer-events: none;
+  }
+  #top-header .bismillah {
+    font-family: 'Amiri', serif;
+    font-size: 20px; font-weight: 700; color: #ffd16b;
+    text-shadow: 0 0 20px rgba(255,209,107,0.35);
+    direction: rtl;
+  }
+  #top-header .bismillah-sub {
+    font-family: 'Amiri', serif;
+    font-size: 14px; font-weight: 600; color: #f0c060;
+    text-shadow: 0 0 14px rgba(255,209,107,0.22);
+    direction: rtl; margin-top: 1px;
+  }
+  #top-header .divider {
+    width: 70%; max-width: 600px; height: 1px;
+    margin: 6px auto 6px;
+    background: linear-gradient(90deg, transparent, rgba(80,160,255,0.55), transparent);
+  }
+  #top-header h1 { font-size: 15px; font-weight: 700; color: #8ecbff; line-height: 1.4; }
+  #top-header .authors { font-size: 12px; color: #a8c0dc; margin-top: 3px; }
+  #top-header .authors sup { color: #7fd8ff; font-weight: 700; }
+  #top-header .affil { font-size: 10.5px; color: #6a9bd8; margin-top: 2px; }
+  #top-header .uni { font-size: 11px; color: #5fdf95; font-weight: 600; margin-top: 2px; }
+  #top-header .uni::before { content: '🎓 '; font-size: 10px; }
+
+  /* ---------- Control panel ---------- */
+  #panel {
+    position: fixed; top: 160px; right: 16px; width: 340px; z-index: 10;
+    background: rgba(8,16,32,0.86); backdrop-filter: blur(14px);
+    border-radius: 16px; padding: 14px 16px 16px;
+    border: 1px solid rgba(80,160,255,0.28);
+    box-shadow: 0 8px 40px rgba(0,0,0,0.65);
+    max-height: calc(100vh - 210px); overflow-y: auto;
+  }
+  #panel h2 { font-size: 12px; color: #7fb4ff; margin-bottom: 8px;
+    font-weight: 700; border-bottom: 1px solid rgba(80,160,255,0.18);
+    padding-bottom: 5px; letter-spacing: 0.3px; }
+
+  .ctrl { margin-bottom: 12px; }
+  .ctrl label { display: flex; justify-content: space-between;
+    font-size: 11.5px; color: #b8c8e0; margin-bottom: 5px; }
+  .ctrl label .val { color: #ffd16b; font-weight: 700;
+    font-variant-numeric: tabular-nums; }
+
+  input[type=range] { width: 100%; -webkit-appearance: none; appearance: none;
+    height: 5px; border-radius: 3px; outline: none; cursor: pointer;
+    background: linear-gradient(90deg, #1a3a6a, #2a7fff); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: #fff; border: 2px solid #2a7fff; cursor: pointer;
+    box-shadow: 0 0 10px rgba(42,127,255,0.85); }
+  input[type=range]::-moz-range-thumb {
+    width: 14px; height: 14px; border-radius: 50%;
+    background: #fff; border: 2px solid #2a7fff; cursor: pointer; }
+
+  .readout { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin: 8px 0 12px; }
+  .card { background: rgba(20,30,50,0.7); border-radius: 10px; padding: 8px 10px;
+    border: 1px solid rgba(80,160,255,0.15); }
+  .card .k { font-size: 10px; color: #7f95b5; }
+  .card .v { font-size: 15px; font-weight: 700; color: #8ecbff;
+    font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .card.warn .v { color: #ff7b6b; }
+
+  #status { font-size: 11px; text-align: center; padding: 8px 10px;
+    border-radius: 8px; font-weight: 600; margin-bottom: 10px;
+    transition: 0.2s; }
+  .stable   { background: rgba(40,180,90,0.18); color: #5fdf95; border: 1px solid rgba(40,180,90,0.4); }
+  .critical { background: rgba(255,180,30,0.18); color: #ffce5f; border: 1px solid rgba(255,180,30,0.4); }
+  .pulled   { background: rgba(255,60,60,0.20); color: #ff7b6b; border: 1px solid rgba(255,60,60,0.45);
+    animation: pulse 0.85s infinite alternate; }
+  @keyframes pulse { from { box-shadow: 0 0 0 rgba(255,60,60,0); }
+                     to   { box-shadow: 0 0 18px rgba(255,60,60,0.65); } }
+
+  .view-btns { display: flex; gap: 5px; flex-wrap: wrap; }
+  .view-btns button { flex: 1; min-width: 58px;
+    background: rgba(30,50,90,0.7); color: #b8c8e0;
+    border: 1px solid rgba(80,160,255,0.25);
+    border-radius: 8px; padding: 6px 4px; font-size: 10.5px;
+    cursor: pointer; transition: 0.15s; }
+  .view-btns button:hover { background: rgba(50,90,160,0.8); color: #fff; }
+  .view-btns button.active { background: #2a7fff; color: #fff; border-color: #66aaff; font-weight: 700; }
+
+  .toggle-row { display: flex; justify-content: space-between;
+    align-items: center; font-size: 11.5px; color: #b8c8e0;
+    margin-bottom: 8px; }
+  .switch { position: relative; width: 36px; height: 19px;
+    background: #1a2a44; border-radius: 10px; cursor: pointer;
+    transition: 0.2s; border: 1px solid rgba(80,160,255,0.2); flex-shrink: 0; }
+  .switch::after { content: ''; position: absolute; top: 2px; left: 2px;
+    width: 13px; height: 13px; border-radius: 50%; background: #667; transition: 0.2s; }
+  .switch.on { background: #2a7fff; }
+  .switch.on::after { left: 19px; background: #fff; }
+
+  #btn-sweep { width: 100%; background: linear-gradient(90deg, #1a4a8a, #2a7fff);
+    color: #fff; border: none; border-radius: 10px; padding: 9px;
+    font-size: 12px; font-weight: 700; cursor: pointer;
+    font-family: 'Times New Roman', serif; transition: 0.2s; }
+  #btn-sweep:hover { filter: brightness(1.15); }
+
+  #panel::-webkit-scrollbar { width: 6px; }
+  #panel::-webkit-scrollbar-thumb { background: #2a4a7a; border-radius: 3px; }
+
+  /* ---------- Camera panel ---------- */
+  #camera-panel {
+    position: fixed; left: 16px; bottom: 90px; z-index: 15;
+    width: 280px; height: 220px;
+    background: rgba(8,16,32,0.92); backdrop-filter: blur(14px);
+    border-radius: 14px;
+    border: 1px solid rgba(80,160,255,0.35);
+    box-shadow: 0 8px 40px rgba(0,0,0,0.7);
+    overflow: hidden;
+    display: flex; flex-direction: column;
+    transition: opacity 0.3s, transform 0.3s;
+  }
+  #camera-panel.hidden { opacity: 0; transform: scale(0.95); pointer-events: none; }
+  #camera-panel .cam-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 7px 10px; background: rgba(20,30,50,0.9);
+    border-bottom: 1px solid rgba(80,160,255,0.2);
+    font-size: 11px; font-weight: 600; color: #8ecbff;
+    flex-shrink: 0;
+  }
+  #camera-panel .cam-header .cam-status {
+    font-size: 9.5px; padding: 2px 7px; border-radius: 5px;
+    background: rgba(255,180,30,0.2); color: #ffce5f;
+    font-weight: 600;
+  }
+  #camera-panel .cam-header .cam-status.active {
+    background: rgba(40,180,90,0.25); color: #5fdf95;
+  }
+  #camera-panel .cam-header .cam-status.error {
+    background: rgba(255,60,60,0.25); color: #ff7b6b;
+  }
+  #camera-wrap { position: relative; flex: 1; background: #000; overflow: hidden; }
+  #webcam { position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: cover; transform: scaleX(-1); }
+  #overlay-canvas { position: absolute; inset: 0; width: 100%; height: 100%;
+    pointer-events: none; transform: scaleX(-1); }
+  #camera-panel .cam-footer {
+    padding: 6px 10px; font-size: 10px; color: #8fa5c5;
+    background: rgba(15,22,40,0.95);
+    border-top: 1px solid rgba(80,160,255,0.15);
+    display: flex; justify-content: space-between; align-items: center;
+    flex-shrink: 0;
+  }
+  #camera-panel .cam-footer .pinch-val {
+    color: #ffd16b; font-weight: 700; font-variant-numeric: tabular-nums;
+  }
+  #camera-panel .cam-footer .hint-txt { font-size: 9.5px; color: #607090; }
+
+  /* ---------- Equilibrium plot ---------- */
+  #plot-panel {
+    position: fixed; left: 16px; top: 160px; z-index: 12;
+    width: 320px; height: 280px;
+    background: rgba(8,16,32,0.9); backdrop-filter: blur(12px);
+    border-radius: 14px;
+    border: 1px solid rgba(80,160,255,0.28);
+    box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+    padding: 8px 10px;
+    transition: opacity 0.3s, transform 0.3s;
+  }
+  #plot-panel.hidden { opacity: 0; transform: scale(0.95); pointer-events: none; }
+  #plot-panel h3 { font-size: 11.5px; color: #8ecbff; font-weight: 700;
+    margin-bottom: 2px; }
+  #plot-panel .sub { font-size: 9px; color: #607090; margin-bottom: 4px; }
+  #plot-canvas { width: 100%; height: 225px; display: block;
+    border-radius: 8px; }
+
+  /* ---------- Legend ---------- */
+  #legend { position: fixed; bottom: 16px; left: 16px; z-index: 10;
+    background: rgba(8,16,32,0.85); backdrop-filter: blur(10px);
+    border-radius: 12px; padding: 9px 12px;
+    border: 1px solid rgba(80,160,255,0.22);
+    font-size: 11px; color: #a8bcd8; line-height: 1.8; }
+  #legend b { color: #8ecbff; font-size: 11.5px; }
+  #legend .swatch { display: inline-block; width: 10px; height: 10px;
+    border-radius: 3px; margin-right: 5px; vertical-align: middle; }
+
+  #hint { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+    z-index: 10; font-size: 10.5px; color: #7080a0;
+    background: rgba(8,16,32,0.65); padding: 6px 11px; border-radius: 8px;
+    border: 1px solid rgba(80,160,255,0.12); white-space: nowrap; }
+  #hint kbd { background: #1a2a44; padding: 2px 6px; border-radius: 4px;
+    color: #8ecbff; font-size: 10px; font-family: monospace; margin: 0 2px; }
+
+  #credit-footer {
+    position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%);
+    z-index: 12; font-size: 11px; color: #a8bcd8;
+    background: rgba(8,16,32,0.82); backdrop-filter: blur(10px);
+    padding: 6px 16px; border-radius: 8px;
+    border: 1px solid rgba(80,160,255,0.22);
+    white-space: nowrap; text-align: center;
+  }
+  #credit-footer b { color: #ffd16b; }
+
+  /* ---------- FAB bar ---------- */
+  #fab-bar {
+    position: fixed; top: 160px; left: 16px; z-index: 14;
+    display: flex; flex-direction: column; gap: 6px;
+    background: rgba(8,16,32,0.86); backdrop-filter: blur(10px);
+    padding: 8px; border-radius: 12px;
+    border: 1px solid rgba(80,160,255,0.22);
+  }
+  #fab-bar button {
+    width: 40px; height: 40px; border-radius: 8px;
+    background: rgba(30,50,90,0.75); color:#d8e8ff;
+    border: 1px solid rgba(80,160,255,0.3);
+    cursor: pointer; font-size: 18px; transition: 0.15s;
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+  }
+  #fab-bar button:hover { background:#2a7fff; color:#fff; }
+  #fab-bar button.active { background:#2a7fff; color:#fff; border-color:#66aaff;
+    box-shadow: 0 0 12px rgba(80,200,255,0.6); }
+  #fab-bar button .tip {
+    position: absolute; left: 48px; top: 50%; transform: translateY(-50%);
+    background: rgba(20,40,70,0.96); color:#e8f4ff;
+    padding: 4px 8px; border-radius: 6px; font-size: 10.5px;
+    white-space: nowrap; opacity: 0; pointer-events: none;
+    transition: 0.15s; border: 1px solid rgba(120,200,255,0.4);
+  }
+  #fab-bar button:hover .tip { opacity: 1; }
+
+  /* ---------- Toast ---------- */
+  #toast {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    background: rgba(20,40,70,0.96); color:#e8f4ff;
+    padding: 14px 22px; border-radius: 12px; font-size: 13px;
+    border: 1px solid rgba(120,200,255,0.5);
+    box-shadow: 0 8px 40px rgba(0,0,0,0.7);
+    opacity: 0; pointer-events: none; transition: opacity 0.3s;
+    z-index: 100; text-align: center;
+  }
+  #toast.show { opacity: 1; }
+
+  /* ---------- Tour ---------- */
+  #tour-overlay {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(0,3,8,0.75); backdrop-filter: blur(3px);
+    display: none; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  #tour-overlay.show { display: flex; }
+  #tour-box {
+    background: rgba(8,16,32,0.97);
+    border: 1px solid rgba(80,160,255,0.4);
+    border-radius: 16px; padding: 24px 28px; max-width: 480px;
+    box-shadow: 0 10px 60px rgba(0,0,0,0.8);
+    text-align: center;
+  }
+  #tour-box h2 { font-size: 18px; color: #ffd16b; margin-bottom: 12px; }
+  #tour-box p { font-size: 13.5px; color: #cfe4ff; line-height: 1.7;
+    margin-bottom: 16px; }
+  #tour-box .tour-actions { display: flex; gap: 8px; justify-content: center; }
+  #tour-box .tour-actions button { padding: 9px 20px; font-size: 12.5px;
+    font-weight: 700; border-radius: 8px; border: none; cursor: pointer;
+    font-family: 'Times New Roman', serif; }
+  #tour-box .btn-primary { background:#2a7fff; color:#fff; }
+  #tour-box .btn-secondary { background: rgba(30,50,90,0.8); color:#d8e8ff;
+    border: 1px solid rgba(80,160,255,0.3) !important; }
+  #tour-box .tour-step { font-size: 11px; color:#7f95b5; margin-bottom: 8px; }
+
+  /* ---------- Presentation ---------- */
+  body.presentation #panel,
+  body.presentation #camera-panel,
+  body.presentation #plot-panel,
+  body.presentation #legend,
+  body.presentation #hint,
+  body.presentation #fab-bar,
+  body.presentation #credit-footer {
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.95);
+    transition: all 0.4s ease;
+  }
+
+  @media (max-width: 900px) {
+    #camera-panel { width: 200px; height: 160px; bottom: 70px; left: 10px; }
+    #panel { width: 260px; top: 150px; max-height: calc(100vh - 240px); }
+    #plot-panel { width: 260px; height: 240px; }
+    #legend { font-size: 10px; padding: 7px 10px; }
+    #hint { display: none; }
+    #fab-bar { display: none; }
+    #credit-footer { font-size: 10px; padding: 5px 10px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="canvas-host"></div>
+
+<!-- Header -->
+<div id="top-header">
+  <div class="bismillah">بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ</div>
+  <div class="bismillah-sub">هُوَ الْخَلَّاقُ الْعَلِيمُ</div>
+  <div class="divider"></div>
+  <h1>Numerical Modeling and Validation of an Electrostatic Nanotweezer — 3D Interactive Simulation</h1>
+  <div class="authors">
+    Faeze Kavianpour<sup>1</sup> &nbsp;·&nbsp;
+    Mohammad Reza Gharib<sup>2*</sup> &nbsp;·&nbsp;
+    Ali Koochi<sup>3*</sup> &nbsp;·&nbsp;
+    Masoud Goharimanesh<sup>4</sup>
+  </div>
+  <div class="affil">
+    <sup>1</sup>M.Sc. Student &nbsp;·&nbsp;
+    <sup>2,3,4</sup>Associate Professors &nbsp;·&nbsp;
+    Department of Mechanical Engineering, University of Torbat Heydarieh, Iran
+  </div>
+  <div class="uni">University of Torbat Heydarieh</div>
+</div>
+
+<!-- FAB bar -->
+<div id="fab-bar">
+  <button id="btn-snapshot" title="Snapshot">📷<span class="tip">Snapshot PNG</span></button>
+  <button id="btn-export" title="Export">💾<span class="tip">Export CSV</span></button>
+  <button id="btn-presentation" title="Presentation">🎬<span class="tip">Presentation Mode</span></button>
+  <button id="btn-tour" title="Tour">❓<span class="tip">Onboarding Tour</span></button>
+  <button id="btn-camera-toggle" title="Camera">🖐️<span class="tip">Start Camera</span></button>
+</div>
+
+<!-- Equilibrium plot -->
+<div id="plot-panel">
+  <h3>Equilibrium Curve — V vs. Tip Deflection</h3>
+  <div class="sub">Green = stable · Dashed red = unstable (post pull-in) · Yellow ✕ = pull-in point</div>
+  <canvas id="plot-canvas"></canvas>
+</div>
+
+<!-- Control panel -->
+<div id="panel">
+  <h2>Applied Voltage</h2>
+  <div class="ctrl">
+    <label>Voltage V <span class="val" id="v-volt">0.0 V</span></label>
+    <input type="range" id="s-volt" min="0" max="99.4" step="0.1" value="0">
+  </div>
+
+  <div id="status" class="stable">STABLE — Before Pull-In</div>
+
+  <h2>Live Readouts</h2>
+  <div class="readout">
+    <div class="card"><div class="k">Tip Deflection (each arm)</div><div class="v" id="v-wtip">0.00 μm</div></div>
+    <div class="card"><div class="k">Surface-to-Surface Gap</div><div class="v" id="v-gap">6.90 μm</div></div>
+    <div class="card"><div class="k">Tip Gap (nm)</div><div class="v" id="v-gapnm">6900</div></div>
+    <div class="card"><div class="k">Electrostatic Force (norm.)</div><div class="v" id="v-force">0.00</div></div>
+  </div>
+
+  <h2>Critical Points</h2>
+  <div class="readout">
+    <div class="card"><div class="k">V<sub>Pull-In</sub></div><div class="v">99.4 V</div></div>
+    <div class="card warn"><div class="k">Gap at Pull-In</div><div class="v">3.72 μm</div></div>
+  </div>
+
+  <h2>Camera Views</h2>
+  <div class="view-btns">
+    <button data-view="iso" class="active">Isometric</button>
+    <button data-view="side">Side</button>
+    <button data-view="front">Front</button>
+    <button data-view="top">Top</button>
+    <button data-view="gap">Gap</button>
+  </div>
+
+  <h2 style="margin-top:14px">Parametric Study</h2>
+  <div class="ctrl">
+    <label>Nanowire Length L <span class="val" id="v-L">19.6 μm</span></label>
+    <input type="range" id="s-L" min="10" max="30" step="0.1" value="19.6">
+  </div>
+  <div class="ctrl">
+    <label>Diameter φ <span class="val" id="v-D">0.30 μm</span></label>
+    <input type="range" id="s-D" min="0.1" max="0.6" step="0.01" value="0.30">
+  </div>
+  <div class="ctrl">
+    <label>Initial Gap g₀ <span class="val" id="v-G">6.90 μm</span></label>
+    <input type="range" id="s-G" min="3" max="10" step="0.1" value="6.90">
+  </div>
+
+  <h2 style="margin-top:14px">Display Layers</h2>
+  <div class="toggle-row"><span>Electrostatic Field Lines</span><div class="switch on" id="t-field"></div></div>
+  <div class="toggle-row"><span>Beam Wireframe</span><div class="switch" id="t-wire"></div></div>
+  <div class="toggle-row"><span>Auto Rotate</span><div class="switch" id="t-spin"></div></div>
+
+  <h2 style="margin-top:14px">Control Mode</h2>
+  <div class="toggle-row"><span>Gesture Control (Right Hand)</span><div class="switch on" id="t-hand"></div></div>
+
+  <h2 style="margin-top:14px">Automatic Voltage Sweep</h2>
+  <button id="btn-sweep">▶ Run Sweep to Pull-In</button>
+</div>
+
+<!-- Camera panel (hidden until user clicks FAB) -->
+<div id="camera-panel" class="hidden">
+  <div class="cam-header">
+    <span>📷 Camera — Right-Hand Tracking</span>
+    <span class="cam-status" id="cam-status">Not started</span>
+  </div>
+  <div id="camera-wrap">
+    <video id="webcam" autoplay playsinline muted></video>
+    <canvas id="overlay-canvas"></canvas>
+  </div>
+  <div class="cam-footer">
+    <span>Thumb–Index: <span class="pinch-val" id="pinch-readout">—</span></span>
+    <span class="hint-txt">Right hand only</span>
+  </div>
+</div>
+
+<div id="legend">
+  <b>Legend</b><br>
+  <span class="swatch" style="background:#3fa9f5"></span> Top carbon nanowire<br>
+  <span class="swatch" style="background:#e85d75"></span> Bottom carbon nanowire<br>
+  <span class="swatch" style="background:#ffd16b"></span> Electrostatic field region<br>
+  <span class="swatch" style="background:#5fdf95"></span> Fixed anchor (x = 0)
+</div>
+
+<div id="hint">
+  <kbd>Drag</kbd> rotate &nbsp; <kbd>Scroll</kbd> zoom &nbsp; <kbd>Right-Drag</kbd> pan
+</div>
+
+<div id="credit-footer">
+  Interactive system designed by <b>Dr. Masoud Goharimanesh</b>
+</div>
+
+<div id="toast"></div>
+
+<!-- Tour -->
+<div id="tour-overlay">
+  <div id="tour-box">
+    <div class="tour-step" id="tour-step-label">Step 1 of 5</div>
+    <h2 id="tour-title">Welcome to the 3D Nanotweezer Simulator</h2>
+    <p id="tour-text">This model reproduces the COMSOL displacement field of the benchmark carbon nanotweezer (Chang et al., 2009).</p>
+    <div class="tour-actions">
+      <button class="btn-secondary" id="tour-skip">Skip</button>
+      <button class="btn-primary" id="tour-next">Next →</button>
+    </div>
+  </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+/* ============================================================
+   1) BENCHMARK DATA (Chang et al. 2009; COMSOL at 99.4 V)
+   ============================================================ */
+const V_DATA = [
+  0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60,
+  65, 70, 75, 80, 85, 90, 91, 92, 93, 94, 95, 96, 97,
+  98, 99, 99.1, 99.2, 99.3, 99.4
+];
+const W_DEFL = [
+  0, 0.00476, 0.0190, 0.0428, 0.0761, 0.119, 0.171, 0.233, 0.304,
+  0.384, 0.474, 0.573, 0.681, 0.797, 0.923, 1.06, 1.20, 1.35, 1.51,
+  1.54, 1.57, 1.60, 1.64, 1.67, 1.70, 1.74, 1.77, 1.81, 1.81, 1.82,
+  1.82, 1.82
+];
+
+const V_PULLIN_BASE = 99.4;
+const GAP0_BASE     = 6.90;
+const GAP_PI_BASE   = 3.72;
+const DEFL_PI_BASE  = (GAP0_BASE - GAP_PI_BASE) / 2;   // 1.59 μm
+const L_NW_BASE     = 19.6;
+const D_NW_BASE     = 0.30;
+
+function interpDeflection(V, dataV, dataW) {
+  if (V <= dataV[0]) return dataW[0];
+  if (V >= dataV[dataV.length - 1]) return dataW[dataW.length - 1];
+  for (let i = 0; i < dataV.length - 1; i++) {
+    if (V >= dataV[i] && V <= dataV[i + 1]) {
+      const f = (V - dataV[i]) / (dataV[i + 1] - dataV[i]);
+      return dataW[i] + f * (dataW[i + 1] - dataW[i]);
+    }
+  }
+  return dataW[dataW.length - 1];
+}
+
+/* ============================================================
+   2) 3D SCENE
+   ============================================================ */
+const host = document.getElementById('canvas-host');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x000308);
+scene.fog = new THREE.FogExp2(0x000308, 0.045);
+
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.05, 200);
+camera.position.set(3.2, 2.4, 3.6);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
+renderer.preserveDrawingBuffer = true;
+host.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.minDistance = 0.8;
+controls.maxDistance = 14;
+controls.target.set(0, 0, 0);
+
+scene.add(new THREE.AmbientLight(0x8899bb, 0.55));
+const key = new THREE.DirectionalLight(0xbfd8ff, 1.6);
+key.position.set(4, 6, 5);
+key.castShadow = true;
+key.shadow.mapSize.set(1024, 1024);
+key.shadow.camera.near = 0.5; key.shadow.camera.far = 20;
+key.shadow.camera.left = -4; key.shadow.camera.right = 4;
+key.shadow.camera.top = 4;  key.shadow.camera.bottom = -4;
+scene.add(key);
+const rim = new THREE.DirectionalLight(0xff7a5c, 0.6);
+rim.position.set(-4, -2, -4);
+scene.add(rim);
+const fill = new THREE.PointLight(0x2a7fff, 0.8, 20);
+fill.position.set(0, 0.5, 3);
+scene.add(fill);
+
+const grid = new THREE.GridHelper(12, 24, 0x1a3050, 0x101a2c);
+grid.position.y = -1.6;
+scene.add(grid);
+
+/* ============================================================
+   3) GEOMETRY (dynamic)
+   ============================================================ */
+let L_MODEL   = 3.92;
+let R_NW      = 0.03;
+let HALF_GAP0 = 0.69;
+const N_SEG   = 60;
+
+function shapeProfile(x) {
+  return 0.5 * (3 * x * x - x * x * x);
+}
+
+/* Build beam: deflection shape scales with tip ratio */
+function buildBeam(w_tip, sign) {
+  const pts = [];
+  const tipDisp = (w_tip / params.DEFL_PI) * HALF_GAP0 * (params.DEFL_PI / DEFL_PI_BASE);
+  // Normalize: at w_tip = params.DEFL_PI the tip moves by (GAP0_BASE - GAP_PI_BASE)/2 in μm-scaled units
+  // Convert w_tip (μm) to model units (1 unit = 5 μm)
+  const tipDispModel = w_tip / 5;    // μm → model units
+  for (let i = 0; i <= N_SEG; i++) {
+    const s = i / N_SEG;
+    const x = s * L_MODEL;
+    const dispFrac = shapeProfile(s);
+    const disp = tipDispModel * dispFrac;
+    const y = sign * (HALF_GAP0 - disp);
+    pts.push(new THREE.Vector3(x, y, 0));
+  }
+  const curve = new THREE.CatmullRomCurve3(pts);
+  return new THREE.TubeGeometry(curve, N_SEG, R_NW, 12, false);
+}
+
+const matUpper = new THREE.MeshStandardMaterial({
+  color: 0x3fa9f5, metalness: 0.85, roughness: 0.28,
+  emissive: 0x0a2a4a, emissiveIntensity: 0.6 });
+const matLower = new THREE.MeshStandardMaterial({
+  color: 0xe85d75, metalness: 0.7, roughness: 0.35,
+  emissive: 0x3a0a14, emissiveIntensity: 0.5 });
+const matWire = new THREE.MeshBasicMaterial({
+  color: 0x9fd0ff, wireframe: true, transparent: true, opacity: 0.35 });
+
+const upperGroup = new THREE.Group();
+const lowerGroup = new THREE.Group();
+scene.add(upperGroup, lowerGroup);
+let upperMesh = null, lowerMesh = null, upperWire = null, lowerWire = null;
+
+let anchor = null;
+const anchorMat = new THREE.MeshStandardMaterial({
+  color: 0x5fdf95, metalness: 0.6, roughness: 0.4,
+  emissive: 0x0a3018, emissiveIntensity: 0.5 });
+function rebuildAnchor() {
+  if (anchor) scene.remove(anchor);
+  const anchorGeo = new THREE.BoxGeometry(0.18, 2 * HALF_GAP0 + 0.35, 0.20);
+  anchor = new THREE.Mesh(anchorGeo, anchorMat);
+  anchor.position.set(-0.09, 0, 0);
+  anchor.castShadow = true; anchor.receiveShadow = true;
+  scene.add(anchor);
+}
+
+const tipGeo = new THREE.SphereGeometry(1, 20, 20);
+const tipUpperMat = new THREE.MeshStandardMaterial({
+  color: 0xffe08a, emissive: 0xffaa00, emissiveIntensity: 1.4,
+  metalness: 0.8, roughness: 0.2 });
+const tipLowerMat = new THREE.MeshStandardMaterial({
+  color: 0xffb08a, emissive: 0xff6622, emissiveIntensity: 1.2,
+  metalness: 0.8, roughness: 0.25 });
+const tipUpper = new THREE.Mesh(tipGeo, tipUpperMat);
+const tipLower = new THREE.Mesh(tipGeo, tipLowerMat);
+function updateTipScale() {
+  tipUpper.scale.setScalar(R_NW * 1.4);
+  tipLower.scale.setScalar(R_NW * 1.4);
+}
+updateTipScale();
+scene.add(tipUpper, tipLower);
+
+/* Field lines */
+const fieldGroup = new THREE.Group();
+scene.add(fieldGroup);
+const FIELD_LINES = 11;
+const fieldLines = [];
+for (let i = 1; i <= FIELD_LINES; i++) {
+  const s = i / (FIELD_LINES + 1);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(6), 3));
+  const line = new THREE.Line(geo, new THREE.LineBasicMaterial({
+    color: 0x4060a0, transparent: true, opacity: 0.25 }));
+  line.userData.s = s;
+  fieldGroup.add(line);
+  fieldLines.push(line);
+}
+
+/* Fringing-field shader plane */
+const stressPlaneMat = new THREE.ShaderMaterial({
+  transparent: true, depthWrite: false,
+  uniforms: { uIntensity: { value: 0 }, uY: { value: HALF_GAP0 } },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+  `,
+  fragmentShader: `
+    varying vec2 vUv;
+    uniform float uIntensity;
+    void main() {
+      float d = abs(vUv.y - 0.5) * 2.0;
+      float tip = pow(vUv.x, 1.5);
+      float f = (1.0 - d) * (0.3 + 0.7 * tip) * uIntensity;
+      vec3 hot = vec3(1.0, 0.35, 0.05);
+      vec3 cold = vec3(0.15, 0.35, 0.85);
+      vec3 col = mix(cold, hot, smoothstep(0.0, 1.0, f));
+      gl_FragColor = vec4(col, 0.12 * f + 0.03);
+    }
+  `,
+});
+const stressPlane = new THREE.Mesh(new THREE.PlaneGeometry(1, 1, 32, 32), stressPlaneMat);
+stressPlane.renderOrder = 1;
+scene.add(stressPlane);
+
+/* ============================================================
+   4) PARAMETERS & SCALING
+   ============================================================ */
+const params = {
+  L_um: L_NW_BASE,
+  D_um: D_NW_BASE,
+  G_um: GAP0_BASE,
+  V_PULLIN: V_PULLIN_BASE,
+  DEFL_PI: DEFL_PI_BASE,     // deflection of each arm at pull-in (μm)
+};
+
+function recomputeParams() {
+  const L  = params.L_um / L_NW_BASE;
+  const D  = params.D_um / D_NW_BASE;
+  const G  = params.G_um / GAP0_BASE;
+
+  params.V_PULLIN = V_PULLIN_BASE * Math.pow(G, 1.5) * Math.pow(D, 0.5) / Math.pow(L, 2);
+  // At pull-in, each arm deflects (g0 - g_pi)/2 where g_pi ≈ 0.54 * g0
+  params.DEFL_PI = 0.5 * (params.G_um - 0.54 * params.G_um);   // = 0.23 * g0
+
+  L_MODEL   = params.L_um / 5;
+  R_NW      = params.D_um / 10;
+  HALF_GAP0 = params.G_um / 10;
+
+  updateTipScale();
+  rebuildAnchor();
+}
+
+/* ============================================================
+   5) STATE
+   ============================================================ */
+let state = { V: 0.0, w_tip: 0.0, pulled: false };
+let showWire = false, showField = true, autoSpin = false;
+let sweeping = false;
+let handControlEnabled = true;
+
+const history = [];
+
+function rebuildBeams(w_tip) {
+  if (upperMesh) { upperGroup.remove(upperMesh); upperMesh.geometry.dispose(); }
+  if (upperWire) { upperGroup.remove(upperWire); upperWire.geometry.dispose(); }
+  upperMesh = new THREE.Mesh(buildBeam(w_tip, +1), matUpper);
+  upperMesh.castShadow = true; upperMesh.receiveShadow = true;
+  upperGroup.add(upperMesh);
+  upperWire = new THREE.Mesh(buildBeam(w_tip, +1), matWire);
+  upperWire.visible = showWire;
+  upperGroup.add(upperWire);
+
+  if (lowerMesh) { lowerGroup.remove(lowerMesh); lowerMesh.geometry.dispose(); }
+  if (lowerWire) { lowerGroup.remove(lowerWire); lowerWire.geometry.dispose(); }
+  lowerMesh = new THREE.Mesh(buildBeam(w_tip, -1), matLower);
+  lowerMesh.castShadow = true; lowerMesh.receiveShadow = true;
+  lowerGroup.add(lowerMesh);
+  lowerWire = new THREE.Mesh(buildBeam(w_tip, -1), matWire);
+  lowerWire.visible = showWire;
+  lowerGroup.add(lowerWire);
+
+  // Tip positions
+  const tipDispModel = w_tip / 5;  // μm → model units
+  const halfGapModel = HALF_GAP0;
+  tipUpper.position.set(L_MODEL, +(halfGapModel - tipDispModel), 0);
+  tipLower.position.set(L_MODEL, -(halfGapModel - tipDispModel), 0);
+
+  // Field lines
+  for (const line of fieldLines) {
+    const s = line.userData.s;
+    const x = s * L_MODEL;
+    const dispFrac = shapeProfile(s);
+    const disp = tipDispModel * dispFrac;
+    const yTop = +(halfGapModel - disp) - R_NW;
+    const yBot = -(halfGapModel - disp) + R_NW;
+    const pos = line.geometry.attributes.position;
+    pos.setXYZ(0, x, yTop, 0);
+    pos.setXYZ(1, x, yBot, 0);
+    pos.needsUpdate = true;
+    line.geometry.computeBoundingSphere();
+  }
+
+  // Stress plane
+  stressPlane.scale.set(L_MODEL * 1.0, halfGapModel * 2 * 0.95, 1);
+  stressPlane.position.set(L_MODEL * 0.5, 0, 0);
+  stressPlaneMat.uniforms.uIntensity.value = state.V / params.V_PULLIN;
+  stressPlaneMat.uniforms.uY.value = halfGapModel;
+}
+
+function updateVisuals() {
+  const w_tip = state.w_tip;
+  const gap = Math.max(params.G_um - 2 * w_tip, 0);
+  rebuildBeams(w_tip);
+
+  const inten = THREE.MathUtils.clamp(state.V / params.V_PULLIN, 0, 1);
+
+  const cIdle = new THREE.Color(0x2a4a7a);
+  const cHot  = new THREE.Color(0xff7b3a);
+  const c = cIdle.clone().lerp(cHot, Math.pow(inten, 1.3));
+  const targetOpacity = showField ? (0.25 + 0.65 * inten) : 0.0;
+  for (const line of fieldLines) {
+    line.material.color.copy(c);
+    line.material.opacity = targetOpacity;
+    line.material.transparent = true;
+  }
+
+  matUpper.emissive.setHSL(0.58, 0.9, 0.10 + 0.30 * inten);
+  matUpper.emissiveIntensity = 0.6 + 1.5 * inten;
+  matLower.emissive.setHSL(0.97, 0.9, 0.08 + 0.28 * inten);
+  matLower.emissiveIntensity = 0.5 + 1.5 * inten;
+  tipUpperMat.emissiveIntensity = 1.4 + 3.0 * inten;
+  tipLowerMat.emissiveIntensity = 1.2 + 3.0 * inten;
+
+  const statusEl = document.getElementById('status');
+  const gapEl    = document.getElementById('v-gap');
+  if (state.pulled) {
+    statusEl.className = 'pulled';
+    statusEl.textContent = '⚠ PULL-IN — Instability';
+    gapEl.style.color = '#ff7b6b';
+  } else if (state.V > params.V_PULLIN * 0.96) {
+    statusEl.className = 'critical';
+    statusEl.textContent = 'Near Pull-In — Critical regime';
+    gapEl.style.color = '#ffce5f';
+  } else {
+    statusEl.className = 'stable';
+    statusEl.textContent = 'STABLE — Before Pull-In';
+    gapEl.style.color = '#8ecbff';
+  }
+
+  document.getElementById('v-wtip').textContent  = w_tip.toFixed(2) + ' μm';
+  document.getElementById('v-gap').textContent   = gap.toFixed(2) + ' μm';
+  document.getElementById('v-gapnm').textContent = (gap * 1000).toFixed(0);
+  const force = state.V * state.V / Math.max(gap * gap, 1e-3);
+  document.getElementById('v-force').textContent = force.toFixed(2);
+
+  drawEquilibriumPlot();
+}
+
+/* At pull-in (V = V_PULLIN), the deflection reaches params.DEFL_PI = (g0 - 3.72)/2 */
+/* For V > V_PULLIN, the beams should NOT move further; the simulation shows
+   instability, and we visualise the collapse as a sudden jump to contact. */
+
+function setVoltage(V) {
+  const Vmax = params.V_PULLIN;
+  const Vclamped = Math.max(0, Math.min(Vmax * 1.02, V));
+  state.V = Vclamped;
+
+  if (Vclamped >= Vmax) {
+    state.pulled = true;
+    // After pull-in: visualise collapse gradually, tips approaching contact
+    const t = Math.min((Vclamped - Vmax) / (Vmax * 0.02), 1.0);
+    // At V=V_PULLIN: gap = 3.72 μm. After: move further to contact (0)
+    const gapAtPI = params.G_um * (GAP_PI_BASE / GAP0_BASE);  // scale pull-in gap
+    const gapNow  = gapAtPI * (1 - t);  // → 0
+    state.w_tip = (params.G_um - gapNow) / 2;
+  } else {
+    state.pulled = false;
+    // Interpolate from base data scaled by V_PULLIN
+    const Vn = Vclamped / params.V_PULLIN * V_PULLIN_BASE;
+    const wBase = interpDeflection(Vn, V_DATA, W_DEFL);
+    // Scale: base DEFL at base pull-in = DEFL_PI_BASE, our DEFL at our pull-in = params.DEFL_PI
+    state.w_tip = wBase / DEFL_PI_BASE * params.DEFL_PI;
+  }
+
+  document.getElementById('v-volt').textContent = Vclamped.toFixed(1) + ' V';
+  document.getElementById('s-volt').value = Vclamped;
+  updateVisuals();
+
+  if (state.pulled && !history.some(h => h.pulled)) playCrack();
+}
+
+/* ============================================================
+   6) EQUILIBRIUM PLOT — V vs. Tip Deflection
+   ============================================================
+   - Stable branch (green): from V=0 to V=V_PULLIN
+   - At V=V_PULLIN: point marked with ✕ → gap = 3.72 μm (NOT contact)
+   - Unstable branch (dashed red): from pull-in toward contact
+   - Hysteresis: release branch at ~0.42 V_pull-in
+   ============================================================ */
+const plotCanvas = document.getElementById('plot-canvas');
+const plotCtx = plotCanvas.getContext('2d');
+
+function sizePlotCanvas() {
+  const rect = plotCanvas.getBoundingClientRect();
+  if (rect.width === 0) return;
+  plotCanvas.width  = rect.width  * devicePixelRatio;
+  plotCanvas.height = rect.height * devicePixelRatio;
+  plotCtx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+}
+sizePlotCanvas();
+window.addEventListener('resize', sizePlotCanvas);
+
+function drawEquilibriumPlot() {
+  const w = plotCanvas.width / devicePixelRatio;
+  const h = plotCanvas.height / devicePixelRatio;
+  if (!w || !h) return;
+  plotCtx.clearRect(0, 0, w, h);
+
+  const padL = 36, padR = 12, padT = 12, padB = 26;
+  const plotW = w - padL - padR;
+  const plotH = h - padT - padB;
+
+  // Axes
+  plotCtx.strokeStyle = 'rgba(120,200,255,0.25)';
+  plotCtx.lineWidth = 1;
+  plotCtx.beginPath();
+  plotCtx.moveTo(padL, padT);
+  plotCtx.lineTo(padL, h - padB);
+  plotCtx.lineTo(w - padR, h - padB);
+  plotCtx.stroke();
+
+  // Axis labels
+  plotCtx.fillStyle = '#8ecbff';
+  plotCtx.font = '9px Times New Roman';
+  plotCtx.textAlign = 'right';
+  plotCtx.fillText('V (V)', padL - 4, padT + 8);
+  plotCtx.textAlign = 'center';
+  plotCtx.fillText('Tip deflection of each arm (μm)', (padL + w - padR) / 2, h - 6);
+
+  // Y-axis ticks (0 to V_PULLIN * 1.05)
+  const yMax = params.V_PULLIN * 1.05;
+  for (let i = 0; i <= 4; i++) {
+    const yv = i / 4 * yMax;
+    const py = h - padB - (yv / yMax) * plotH;
+    plotCtx.fillText(yv.toFixed(0), padL - 3, py + 3);
+    plotCtx.strokeStyle = 'rgba(120,200,255,0.08)';
+    plotCtx.beginPath();
+    plotCtx.moveTo(padL, py);
+    plotCtx.lineTo(w - padR, py);
+    plotCtx.stroke();
+  }
+  // X-axis ticks: 0 to g0/2 (max deflection at contact)
+  const xMax = params.G_um / 2;
+  for (let i = 0; i <= 4; i++) {
+    const xv = i / 4 * xMax;
+    const px = padL + (xv / xMax) * plotW;
+    plotCtx.fillText(xv.toFixed(1), px, h - padB + 12);
+  }
+
+  // --- Stable branch (green): V=0 → V_PULLIN ---
+  plotCtx.strokeStyle = '#5fdf95';
+  plotCtx.lineWidth = 2.2;
+  plotCtx.beginPath();
+  let first = true;
+  for (let i = 0; i < V_DATA.length; i++) {
+    const Vn = V_DATA[i] / V_PULLIN_BASE * params.V_PULLIN;
+    if (Vn >= params.V_PULLIN) break;
+    const wN = W_DEFL[i] / DEFL_PI_BASE * params.DEFL_PI;
+    const px = padL + (wN / xMax) * plotW;
+    const py = h - padB - (Vn / yMax) * plotH;
+    if (first) { plotCtx.moveTo(px, py); first = false; }
+    else plotCtx.lineTo(px, py);
+  }
+  plotCtx.stroke();
+
+  // --- Pull-in marker (at V=V_PULLIN, deflection = DEFL_PI) ---
+  const piPx = padL + (params.DEFL_PI / xMax) * plotW;
+  const piPy = h - padB - (params.V_PULLIN / yMax) * plotH;
+  plotCtx.fillStyle = '#ffce5f';
+  plotCtx.strokeStyle = '#ffce5f';
+  plotCtx.lineWidth = 2;
+  // Circle
+  plotCtx.beginPath();
+  plotCtx.arc(piPx, piPy, 5, 0, Math.PI * 2);
+  plotCtx.fill();
+  // Cross
+  plotCtx.beginPath();
+  plotCtx.moveTo(piPx - 8, piPy - 8); plotCtx.lineTo(piPx - 3, piPy - 3);
+  plotCtx.moveTo(piPx + 8, piPy - 8); plotCtx.lineTo(piPx + 3, piPy - 3);
+  plotCtx.moveTo(piPx - 8, piPy + 8); plotCtx.lineTo(piPx - 3, piPy + 3);
+  plotCtx.moveTo(piPx + 8, piPy + 8); plotCtx.lineTo(piPx + 3, piPy + 3);
+  plotCtx.stroke();
+  // Label
+  plotCtx.fillStyle = '#ffce5f';
+  plotCtx.font = 'bold 9px Times New Roman';
+  plotCtx.textAlign = 'right';
+  plotCtx.fillText(`pull-in @ ${params.V_PULLIN.toFixed(1)} V`, piPx - 10, piPy + 3);
+
+  // --- Unstable branch (dashed red): from pull-in to contact ---
+  plotCtx.strokeStyle = '#ff7b6b';
+  plotCtx.setLineDash([4, 3]);
+  plotCtx.lineWidth = 1.8;
+  plotCtx.beginPath();
+  const wPi = params.DEFL_PI;
+  const wContact = params.G_um / 2;
+  for (let i = 0; i <= 20; i++) {
+    const t = i / 20;
+    const wN = wPi + t * (wContact - wPi);
+    // Voltage drops slightly on unstable branch (saddle-node)
+    const Vn = params.V_PULLIN * (1 - 0.15 * t);
+    const px = padL + (wN / xMax) * plotW;
+    const py = h - padB - (Vn / yMax) * plotH;
+    if (i === 0) plotCtx.moveTo(px, py);
+    else plotCtx.lineTo(px, py);
+  }
+  plotCtx.stroke();
+  plotCtx.setLineDash([]);
+
+  // Contact point
+  plotCtx.fillStyle = '#ff7b6b';
+  plotCtx.beginPath();
+  plotCtx.arc(padL + plotW, h - padB - (params.V_PULLIN * 0.85 / yMax) * plotH, 3, 0, Math.PI * 2);
+  plotCtx.fill();
+
+  // --- Hysteresis release (dashed cyan): from contact back to stable ---
+  const Vrel = params.V_PULLIN * 0.42;
+  plotCtx.strokeStyle = '#8ecbff';
+  plotCtx.setLineDash([2, 3]);
+  plotCtx.lineWidth = 1.5;
+  plotCtx.beginPath();
+  plotCtx.moveTo(padL + plotW, h - padB - (params.V_PULLIN * 0.85 / yMax) * plotH);
+  plotCtx.lineTo(padL + plotW, h - padB - (Vrel / yMax) * plotH);
+  plotCtx.lineTo(piPx, h - padB - (Vrel / yMax) * plotH);
+  plotCtx.stroke();
+  plotCtx.setLineDash([]);
+  plotCtx.fillStyle = '#8ecbff';
+  plotCtx.font = '8.5px Times New Roman';
+  plotCtx.textAlign = 'right';
+  plotCtx.fillText(`release ≈ ${Vrel.toFixed(1)} V`, piPx - 3, h - padB - (Vrel / yMax) * plotH - 3);
+
+  // --- Current operating point ---
+  const curW = Math.min(state.w_tip, xMax);
+  const curV = Math.min(state.V, yMax);
+  const curPx = padL + (curW / xMax) * plotW;
+  const curPy = h - padB - (curV / yMax) * plotH;
+  plotCtx.fillStyle = state.pulled ? '#ff7b6b' : '#ffd16b';
+  plotCtx.shadowColor = plotCtx.fillStyle;
+  plotCtx.shadowBlur = 10;
+  plotCtx.beginPath();
+  plotCtx.arc(curPx, curPy, 5, 0, Math.PI * 2);
+  plotCtx.fill();
+  plotCtx.shadowBlur = 0;
+
+  // Legend
+  plotCtx.font = '9px Times New Roman';
+  plotCtx.textAlign = 'left';
+  plotCtx.fillStyle = '#5fdf95';
+  plotCtx.fillText('■ stable', padL + 4, padT + 10);
+  plotCtx.fillStyle = '#ff7b6b';
+  plotCtx.fillText('- - unstable', padL + 52, padT + 10);
+}
+
+/* ============================================================
+   7) HISTORY / EXPORT
+   ============================================================ */
+let lastHistoryPush = 0;
+function pushHistory() {
+  const now = performance.now();
+  if (now - lastHistoryPush < 100) return;
+  lastHistoryPush = now;
+  history.push({ t: now / 1000, V: state.V, w_tip: state.w_tip,
+                 gap: Math.max(params.G_um - 2 * state.w_tip, 0), pulled: state.pulled });
+  if (history.length > 5000) history.shift();
+}
+setInterval(pushHistory, 100);
+
+document.getElementById('btn-export').addEventListener('click', () => {
+  const rows = ['time_s,voltage_V,w_tip_um,gap_um,pulled'];
+  for (const h of history) {
+    rows.push(`${h.t.toFixed(3)},${h.V.toFixed(2)},${h.w_tip.toFixed(3)},${h.gap.toFixed(3)},${h.pulled}`);
+  }
+  const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'nanotweezer_history.csv';
+  a.click();
+  showToast('✓ CSV exported (' + history.length + ' samples)');
+});
+
+/* ============================================================
+   8) SNAPSHOT
+   ============================================================ */
+document.getElementById('btn-snapshot').addEventListener('click', () => {
+  renderer.render(scene, camera);
+  const dataURL = renderer.domElement.toDataURL('image/png');
+  const img = new Image();
+  img.onload = () => {
+    const c = document.createElement('canvas');
+    c.width = img.width; c.height = img.height;
+    const ctx = c.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    ctx.font = '16px Times New Roman';
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.fillText('Electrostatic Nanotweezer — COMSOL benchmark', 20, c.height - 40);
+    ctx.font = '13px Times New Roman';
+    ctx.fillText('Kavianpour, Gharib, Koochi, Goharimanesh — Univ. Torbat Heydarieh', 20, c.height - 20);
+    const a = document.createElement('a');
+    a.href = c.toDataURL('image/png');
+    a.download = 'nanotweezer_snapshot.png';
+    a.click();
+    showToast('✓ Snapshot saved');
+  };
+  img.src = dataURL;
+});
+
+/* ============================================================
+   9) PRESENTATION MODE
+   ============================================================ */
+document.getElementById('btn-presentation').addEventListener('click', () => {
+  document.body.classList.toggle('presentation');
+  showToast(document.body.classList.contains('presentation')
+    ? 'Presentation mode ON — press Esc to exit'
+    : 'Presentation mode OFF');
+});
+window.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.body.classList.contains('presentation')) {
+    document.body.classList.remove('presentation');
+    showToast('Presentation mode OFF');
+  }
+});
+
+/* ============================================================
+   10) TOAST
+   ============================================================ */
+const toastEl = document.getElementById('toast');
+let toastTimer = null;
+function showToast(msg) {
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2400);
+}
+
+/* ============================================================
+   11) TOUR
+   ============================================================ */
+const TOUR_STEPS = [
+  { title: 'Welcome to the 3D Nanotweezer Simulator',
+    text: 'This model reproduces the COMSOL displacement field of the benchmark carbon nanotweezer (Chang et al., 2009). Two cylindrical nanowires are clamped at x = 0 and free at x = L.' },
+  { title: 'Gesture Control (Optional)',
+    text: 'Click the 🖐️ button (left toolbar) to enable the webcam. Raise your RIGHT hand — the distance between thumb and index finger controls the applied voltage. You can always use the slider instead.' },
+  { title: 'Pull-In at 99.4 V — NOT at contact',
+    text: 'At 99.4 V, the nonlinear electrostatic force overcomes the elastic restoring force. The tips are still 3.72 μm apart — this is the critical gap at pull-in. The wires then collapse to contact due to instability, not because they touched at 99.4 V.' },
+  { title: 'Equilibrium & Hysteresis',
+    text: 'The plot on the left shows: (a) green stable branch from V=0 to V=99.4 V, (b) yellow ✕ at the pull-in point where the gap is 3.72 μm, (c) dashed red unstable branch from pull-in to contact, (d) cyan release branch at ≈42 V.' },
+  { title: 'Explore and Experiment',
+    text: 'Use the parametric sliders to change L, φ, and g₀. Press 📷 or 💾 to save snapshots or CSV data. Press 🎬 to hide panels for a clean presentation.' },
+];
+let tourStep = 0;
+const tourOverlay = document.getElementById('tour-overlay');
+function showTour() {
+  tourStep = 0;
+  updateTourStep();
+  tourOverlay.classList.add('show');
+}
+function updateTourStep() {
+  const s = TOUR_STEPS[tourStep];
+  document.getElementById('tour-step-label').textContent = `Step ${tourStep + 1} of ${TOUR_STEPS.length}`;
+  document.getElementById('tour-title').textContent = s.title;
+  document.getElementById('tour-text').textContent = s.text;
+  document.getElementById('tour-next').textContent =
+    tourStep === TOUR_STEPS.length - 1 ? 'Finish ✓' : 'Next →';
+}
+document.getElementById('tour-next').addEventListener('click', () => {
+  tourStep++;
+  if (tourStep >= TOUR_STEPS.length) {
+    tourOverlay.classList.remove('show');
+    localStorage.setItem('tour_seen', '1');
+  } else updateTourStep();
+});
+document.getElementById('tour-skip').addEventListener('click', () => {
+  tourOverlay.classList.remove('show');
+  localStorage.setItem('tour_seen', '1');
+});
+document.getElementById('btn-tour').addEventListener('click', showTour);
+if (!localStorage.getItem('tour_seen')) {
+  setTimeout(showTour, 800);
+}
+
+/* ============================================================
+   12) MEDIAPIPE HAND TRACKING — lazy, user-initiated
+   ============================================================ */
+const videoEl       = document.getElementById('webcam');
+const overlayCanvas = document.getElementById('overlay-canvas');
+const overlayCtx    = overlayCanvas.getContext('2d');
+const camStatusEl   = document.getElementById('cam-status');
+const pinchReadout  = document.getElementById('pinch-readout');
+const cameraPanel   = document.getElementById('camera-panel');
+const btnCam        = document.getElementById('btn-camera-toggle');
+
+let handLandmarker = null;
+let lastVideoTime  = -1;
+let pinchMin = 1.0, pinchMax = 0.02;
+let cameraStarted  = false;
+let cameraStarting = false;
+let mpModule       = null;
+let mediaStream    = null;
+
+async function loadMediaPipe() {
+  if (mpModule) return mpModule;
+  try {
+    const mod = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14");
+    mpModule = { HandLandmarker: mod.HandLandmarker, FilesetResolver: mod.FilesetResolver };
+    return mpModule;
+  } catch (e) {
+    console.error('Failed to load MediaPipe from CDN', e);
+    throw e;
+  }
+}
+
+async function initMediaPipe() {
+  if (cameraStarting) return;
+  cameraStarting = true;
+  try {
+    camStatusEl.textContent = 'Loading model…';
+    camStatusEl.className = 'cam-status';
+    const mp = await loadMediaPipe();
+    const vision = await mp.FilesetResolver.forVisionTasks(
+      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+    );
+    handLandmarker = await mp.HandLandmarker.createFromOptions(vision, {
+      baseOptions: {
+        modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+        delegate: "GPU"
+      },
+      runningMode: "VIDEO",
+      numHands: 2,
+      minHandDetectionConfidence: 0.5,
+      minHandPresenceConfidence: 0.5,
+      minTrackingConfidence: 0.5
+    });
+    camStatusEl.textContent = 'Model ready';
+    camStatusEl.className = 'cam-status active';
+    await startWebcam();
+  } catch (err) {
+    console.error('MediaPipe init error:', err);
+    camStatusEl.textContent = 'Camera unavailable';
+    camStatusEl.className = 'cam-status error';
+    showToast('Camera not available — using slider only');
+    btnCam.classList.remove('active');
+    btnCam.querySelector('.tip').textContent = 'Start Camera';
+  } finally {
+    cameraStarting = false;
+  }
+}
+
+async function startWebcam() {
+  try {
+    mediaStream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
+      audio: false
+    });
+    videoEl.srcObject = mediaStream;
+    await new Promise(res => {
+      if (videoEl.readyState >= 2) res();
+      else videoEl.addEventListener('loadeddata', res, { once: true });
+    });
+    overlayCanvas.width  = videoEl.videoWidth  || 640;
+    overlayCanvas.height = videoEl.videoHeight || 480;
+    camStatusEl.textContent = 'Camera active';
+    camStatusEl.className = 'cam-status active';
+    cameraStarted = true;
+    requestAnimationFrame(predictLoop);
+  } catch (err) {
+    console.error('Webcam error:', err);
+    camStatusEl.textContent = 'Camera denied';
+    camStatusEl.className = 'cam-status error';
+    showToast('Camera denied — using slider only');
+    throw err;
+  }
+}
+
+function stopWebcam() {
+  if (mediaStream) {
+    mediaStream.getTracks().forEach(t => t.stop());
+    mediaStream = null;
+  }
+  videoEl.srcObject = null;
+  cameraStarted = false;
+  handLandmarker = null;
+  camStatusEl.textContent = 'Not started';
+  camStatusEl.className = 'cam-status';
+  pinchReadout.textContent = '—';
+}
+
+function drawSkeleton(landmarks, w, h) {
+  if (!landmarks) return;
+  const connections = [
+    [0,1],[1,2],[2,3],[3,4],
+    [0,5],[5,6],[6,7],[7,8],
+    [5,9],[9,10],[10,11],[11,12],
+    [9,13],[13,14],[14,15],[15,16],
+    [13,17],[17,18],[18,19],[19,20],
+    [0,17]
+  ];
+  overlayCtx.save();
+  overlayCtx.strokeStyle = 'rgba(120,200,255,0.75)';
+  overlayCtx.lineWidth = 1.8;
+  for (const [a, b] of connections) {
+    const p1 = landmarks[a], p2 = landmarks[b];
+    overlayCtx.beginPath();
+    overlayCtx.moveTo(p1.x * w, p1.y * h);
+    overlayCtx.lineTo(p2.x * w, p2.y * h);
+    overlayCtx.stroke();
+  }
+  for (let i = 0; i < landmarks.length; i++) {
+    if (i === 4 || i === 8) continue;
+    const p = landmarks[i];
+    overlayCtx.beginPath();
+    overlayCtx.arc(p.x * w, p.y * h, 3, 0, Math.PI * 2);
+    overlayCtx.fillStyle = 'rgba(180,220,255,0.9)';
+    overlayCtx.fill();
+  }
+  overlayCtx.restore();
+}
+
+function drawCustomMarkers(landmarks, w, h) {
+  if (!landmarks || landmarks.length < 9) return;
+  const thumb = landmarks[4];
+  const index = landmarks[8];
+  const tx = thumb.x * w, ty = thumb.y * h;
+  const ix = index.x * w, iy = index.y * h;
+
+  overlayCtx.save();
+  overlayCtx.strokeStyle = '#ffd16b';
+  overlayCtx.lineWidth = 2.5;
+  overlayCtx.setLineDash([6, 4]);
+  overlayCtx.beginPath();
+  overlayCtx.moveTo(tx, ty); overlayCtx.lineTo(ix, iy);
+  overlayCtx.stroke();
+  overlayCtx.restore();
+
+  overlayCtx.save();
+  overlayCtx.beginPath();
+  overlayCtx.arc(tx, ty, 9, 0, Math.PI * 2);
+  overlayCtx.fillStyle = 'rgba(255,100,60,0.85)';
+  overlayCtx.fill();
+  overlayCtx.strokeStyle = '#fff'; overlayCtx.lineWidth = 2; overlayCtx.stroke();
+  overlayCtx.fillStyle = '#fff';
+  overlayCtx.font = 'bold 11px Times New Roman, serif';
+  overlayCtx.fillText('THUMB', tx + 12, ty - 6);
+  overlayCtx.restore();
+
+  overlayCtx.save();
+  overlayCtx.beginPath();
+  overlayCtx.arc(ix, iy, 9, 0, Math.PI * 2);
+  overlayCtx.fillStyle = 'rgba(60,220,120,0.85)';
+  overlayCtx.fill();
+  overlayCtx.strokeStyle = '#fff'; overlayCtx.lineWidth = 2; overlayCtx.stroke();
+  overlayCtx.fillStyle = '#fff';
+  overlayCtx.font = 'bold 11px Times New Roman, serif';
+  overlayCtx.fillText('INDEX', ix + 12, iy - 6);
+  overlayCtx.restore();
+}
+
+function predictLoop() {
+  if (!videoEl.videoWidth) { requestAnimationFrame(predictLoop); return; }
+
+  if (handLandmarker && videoEl.currentTime !== lastVideoTime) {
+    lastVideoTime = videoEl.currentTime;
+    try {
+      const results = handLandmarker.detectForVideo(videoEl, performance.now());
+      overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+      if (results.landmarks && results.landmarks.length > 0) {
+        let idx = -1;
+        if (results.handednesses && results.handednesses.length > 0) {
+          for (let k = 0; k < results.handednesses.length; k++) {
+            const cat = results.handednesses[k][0];
+            if (cat && cat.categoryName === 'Right' && cat.score > 0.5) {
+              idx = k; break;
+            }
+          }
+        }
+
+        if (idx === -1) {
+          pinchReadout.textContent = '—';
+          camStatusEl.textContent = 'Show your RIGHT hand';
+          camStatusEl.className = 'cam-status';
+          requestAnimationFrame(predictLoop);
+          return;
+        }
+
+        camStatusEl.textContent = 'Right hand detected';
+        camStatusEl.className = 'cam-status active';
+
+        const lm = results.landmarks[idx];
+        drawSkeleton(lm, overlayCanvas.width, overlayCanvas.height);
+        drawCustomMarkers(lm, overlayCanvas.width, overlayCanvas.height);
+
+        const dx = lm[4].x - lm[8].x;
+        const dy = lm[4].y - lm[8].y;
+        const pinch = Math.sqrt(dx * dx + dy * dy);
+        pinchReadout.textContent = (pinch * 100).toFixed(1);
+
+        pinchMax = Math.max(pinchMax * 0.995, pinch);
+        pinchMin = Math.min(pinchMin * 1.005, pinch);
+
+        if (handControlEnabled && !sweeping) {
+          const span = Math.max(pinchMax - pinchMin, 1e-3);
+          let norm = (pinchMax - pinch) / span;
+          norm = Math.max(0, Math.min(1, norm));
+          // Gesture maps only to stable regime: 0 to V_PULLIN
+          const V_target = Math.pow(norm, 0.85) * params.V_PULLIN;
+          setVoltage(V_target);
+        }
+      } else {
+        pinchReadout.textContent = '—';
+        camStatusEl.textContent = 'No hand detected';
+        camStatusEl.className = 'cam-status';
+      }
+    } catch (e) { /* ignore */ }
+  }
+  requestAnimationFrame(predictLoop);
+}
+
+/* Toggle camera */
+btnCam.addEventListener('click', async () => {
+  if (cameraStarted) {
+    stopWebcam();
+    cameraPanel.classList.add('hidden');
+    btnCam.classList.remove('active');
+    btnCam.querySelector('.tip').textContent = 'Start Camera';
+    showToast('Camera stopped');
+    return;
+  }
+  cameraPanel.classList.remove('hidden');
+  btnCam.classList.add('active');
+  btnCam.querySelector('.tip').textContent = 'Stop Camera';
+  await initMediaPipe();
+});
+
+/* ============================================================
+   13) CAMERA VIEW PRESETS
+   ============================================================ */
+const viewPresets = {
+  iso:   { pos: [3.2, 2.4, 3.6],  target: [1.6, 0, 0] },
+  side:  { pos: [1.6, 0.6, 5.0],  target: [1.6, 0, 0] },
+  front: { pos: [6.0, 0.5, 0.5],  target: [1.6, 0, 0] },
+  top:   { pos: [1.6, 5.0, 0.5],  target: [1.6, 0, 0] },
+  gap:   { pos: [4.2, 0.4, 1.2],  target: [3.6, 0, 0] }
+};
+let camAnim = null;
+function goToView(name) {
+  const p = viewPresets[name];
+  if (!p) return;
+  camAnim = {
+    t: 0,
+    from: camera.position.clone(), to: new THREE.Vector3(...p.pos),
+    tFrom: controls.target.clone(), tTo: new THREE.Vector3(...p.target)
+  };
+  document.querySelectorAll('.view-btns button').forEach(b =>
+    b.classList.toggle('active', b.dataset.view === name));
+}
+
+/* ============================================================
+   14) UI BINDINGS
+   ============================================================ */
+const sVolt = document.getElementById('s-volt');
+sVolt.addEventListener('input', e => {
+  if (!handControlEnabled) setVoltage(parseFloat(e.target.value));
+  else e.target.value = state.V.toFixed(1);
+});
+
+document.querySelectorAll('.view-btns button').forEach(btn => {
+  btn.addEventListener('click', () => goToView(btn.dataset.view));
+});
+
+function bindSwitch(id, initial, onChange) {
+  const el = document.getElementById(id);
+  let on = initial;
+  el.classList.toggle('on', on);
+  el.addEventListener('click', () => {
+    on = !on;
+    el.classList.toggle('on', on);
+    onChange(on);
+  });
+}
+bindSwitch('t-field', true,  v => { showField = v; fieldGroup.visible = v; stressPlane.visible = v; updateVisuals(); });
+bindSwitch('t-wire',  false, v => {
+  showWire = v;
+  if (upperWire) upperWire.visible = v;
+  if (lowerWire) lowerWire.visible = v;
+});
+bindSwitch('t-spin',  false, v => { autoSpin = v; });
+bindSwitch('t-hand',  true,  v => {
+  handControlEnabled = v;
+  if (!v) sVolt.value = state.V;
+});
+
+// Parametric sliders
+function updateVoltageSliderRange() {
+  document.getElementById('s-volt').max = params.V_PULLIN;
+  if (state.V > params.V_PULLIN) setVoltage(params.V_PULLIN);
+  document.getElementById('v-volt').max = params.V_PULLIN;
+}
+document.getElementById('s-L').addEventListener('input', e => {
+  params.L_um = parseFloat(e.target.value);
+  document.getElementById('v-L').textContent = params.L_um.toFixed(1) + ' μm';
+  recomputeParams();
+  updateVoltageSliderRange();
+  setVoltage(Math.min(state.V, params.V_PULLIN * 0.999));
+});
+document.getElementById('s-D').addEventListener('input', e => {
+  params.D_um = parseFloat(e.target.value);
+  document.getElementById('v-D').textContent = params.D_um.toFixed(2) + ' μm';
+  recomputeParams();
+  updateVoltageSliderRange();
+  setVoltage(Math.min(state.V, params.V_PULLIN * 0.999));
+});
+document.getElementById('s-G').addEventListener('input', e => {
+  params.G_um = parseFloat(e.target.value);
+  document.getElementById('v-G').textContent = params.G_um.toFixed(2) + ' μm';
+  recomputeParams();
+  updateVoltageSliderRange();
+  setVoltage(Math.min(state.V, params.V_PULLIN * 0.999));
+});
+
+const btnSweep = document.getElementById('btn-sweep');
+btnSweep.addEventListener('click', () => {
+  if (sweeping) {
+    sweeping = false;
+    btnSweep.textContent = '▶ Run Sweep to Pull-In';
+    return;
+  }
+  sweeping = true;
+  btnSweep.textContent = '■ Stop';
+  let v = 0.0;
+  const step = () => {
+    if (!sweeping) return;
+    v += params.V_PULLIN * 0.008;
+    if (v >= params.V_PULLIN * 1.02) { v = 0.0; setVoltage(0); }
+    else setVoltage(v);
+    requestAnimationFrame(step);
+  };
+  step();
+});
+
+window.addEventListener('keydown', e => {
+  const v = state.V;
+  if (e.key === 'ArrowRight' || e.key === 'ArrowUp')   { if (!handControlEnabled) setVoltage(v + 2); }
+  if (e.key === 'ArrowLeft'  || e.key === 'ArrowDown') { if (!handControlEnabled) setVoltage(v - 2); }
+  if (e.key === 'r' || e.key === 'R') setVoltage(0);
+  if (e.key === '1') goToView('iso');
+  if (e.key === '2') goToView('side');
+  if (e.key === '3') goToView('front');
+  if (e.key === '4') goToView('top');
+  if (e.key === '5') goToView('gap');
+});
+
+/* ============================================================
+   15) ANIMATION LOOP
+   ============================================================ */
+const clock = new THREE.Clock();
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = clock.getDelta();
+  controls.update();
+
+  if (camAnim) {
+    camAnim.t = Math.min(1, camAnim.t + dt * 2.2);
+    const k = camAnim.t < 0.5
+      ? 2 * camAnim.t * camAnim.t
+      : 1 - Math.pow(-2 * camAnim.t + 2, 2) / 2;
+    camera.position.lerpVectors(camAnim.from, camAnim.to, k);
+    controls.target.lerpVectors(camAnim.tFrom, camAnim.tTo, k);
+    if (camAnim.t >= 1) camAnim = null;
+  }
+
+  if (autoSpin && !camAnim) {
+    const a = Math.atan2(camera.position.z, camera.position.x) + dt * 0.25;
+    const r = Math.hypot(camera.position.x, camera.position.z);
+    camera.position.x = Math.cos(a) * r;
+    camera.position.z = Math.sin(a) * r;
+    camera.lookAt(controls.target);
+  }
+
+  if (!state.pulled) {
+    const t = performance.now() * 0.001;
+    for (let i = 0; i < fieldLines.length; i++) {
+      const line = fieldLines[i];
+      line.material.opacity = line.material.opacity * 0.9
+        + (showField ? (0.2 + 0.2 * Math.sin(t * 2 + i)) : 0) * 0.1;
+    }
+  }
+  renderer.render(scene, camera);
+}
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  sizePlotCanvas();
+  drawEquilibriumPlot();
+});
+
+/* ============================================================
+   16) INIT
+   ============================================================ */
+recomputeParams();
+setVoltage(0.0);
+goToView('iso');
+animate();
+drawEquilibriumPlot();
+
+console.log('%c 3D Electrostatic Nanotweezer — COMSOL Benchmark (Chang et al., 2009)',
+  'color:#8ecbff;font-weight:bold;font-size:14px');
+console.log('%c Faeze Kavianpour · M. R. Gharib · A. Koochi · M. Goharimanesh',
+  'color:#a0b8d8');
+console.log('%c University of Torbat Heydarieh',
+  'color:#5fdf95');
+console.log('%c Interactive system designed by Dr. Masoud Goharimanesh',
+  'color:#ffd16b;font-style:italic');
+</script>
+</body>
+</html>
